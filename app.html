@@ -8,6 +8,31 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  /* ===== الداشبورد ===== */
+  .chart { width: 100%; }
+  svg.chsvg { max-width: 100%; height: auto; display: block; direction: ltr; }
+  .ch-grid { stroke: var(--line); stroke-width: 1; stroke-dasharray: 2 3; }
+  .ch-base { stroke: var(--muted); stroke-width: 1; }
+  .ch-txt { fill: var(--muted); font-size: 11px; font-family: inherit; }
+    .ch-bar { fill: var(--brand); }
+  .ch-bar.low { fill: var(--bad); }
+  .ch-thr { stroke: var(--bad); stroke-width: 1.5; stroke-dasharray: 5 4; }
+  .ch-hit { fill: transparent; cursor: pointer; }
+  .ch-hit:hover, .ch-hit:focus { fill: var(--brand); fill-opacity: .08; outline: none; }
+  .cap { color: var(--muted); font-size: .88rem; margin: 6px 0 0; min-height: 1.4em; }
+  .rrow { padding: 8px 4px; border-bottom: 1px solid var(--line); border-radius: 8px; }
+  .rrow.click { cursor: pointer; }
+  .rrow.click:hover, .rrow.click:focus-visible { background: var(--bg); }
+  .rhead { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .rname { font-weight: 600; }
+  .rmeta { color: var(--muted); font-size: .85rem; }
+  .rbar { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+  .track { flex: 1; height: 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 99px; overflow: hidden; }
+  .fill { height: 100%; background: var(--brand); border-radius: 99px; }
+  .fill.low { background: var(--bad); }
+  .rpct { min-width: 64px; text-align: left; font-variant-numeric: tabular-nums; font-weight: 600; }
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -1388,6 +1413,7 @@ init();
 </script>
 </body>
 </html>
+
 
 
 
