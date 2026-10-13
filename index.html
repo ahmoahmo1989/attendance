@@ -3,9 +3,27 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>تسجيل الحضور</title>
+<title>تسجيل الحضور — كلية التربية، جامعة الأزهر</title>
+<link rel="icon" href="logo-azhar.png">
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@700&family=Cairo:wght@400;600;700;800&display=swap">
+<script>try{var t=localStorage.getItem('att_theme');if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'azhar';document.documentElement.dataset.theme=t;}catch(e){document.documentElement.dataset.theme='azhar';}</script>
 <style>
+  :root, :root[data-theme="azhar"] { --bg:#f2f5f1; --card:#fff; --ink:#15302a; --muted:#5a6e67; --line:#dbe4de; --brand:#0b6b4f; --brand-ink:#fff; --accent:#b8923a; --hero-1:#083d2e; --hero-2:#0e6b50; }
+  :root[data-theme="teal"] { --bg:#f1f6f6; --brand:#0f766e; --hero-1:#073e3a; --hero-2:#0f766e; }
+  :root[data-theme="blue"] { --bg:#f1f4fa; --brand:#1d4ed8; --hero-1:#0d2352; --hero-2:#1d4ed8; }
+  :root[data-theme="purple"] { --bg:#f6f3fa; --brand:#6d28d9; --hero-1:#2b1054; --hero-2:#6d28d9; }
+  :root[data-theme="rose"] { --bg:#faf3f5; --brand:#be185d; --hero-1:#4d0b27; --hero-2:#be185d; }
+  :root[data-theme="dark"] { --bg:#0d1614; --card:#15231f; --ink:#e6f1ee; --muted:#9db3ad; --line:#29403a; --brand:#3ddc97; --brand-ink:#04231a; --ok:#6ee7a0; --ok-bg:#12301f; --bad:#fda29b; --bad-bg:#3a1714; --warn-bg:#3b2f10; --hero-1:#07110f; --hero-2:#0f3a2c; }
+  body { background: var(--bg); color: var(--ink); }
+  .banner { background: linear-gradient(155deg, var(--hero-1), var(--hero-2)); color:#fff; text-align:center; padding:18px 14px 20px; border-radius:0 0 26px 26px; margin:-16px -16px 16px; }
+  .banner .logos { display:flex; justify-content:center; gap:14px; margin-bottom:8px; }
+  .banner img { width:76px; height:76px; border-radius:50%; background:#fff; padding:2px; object-fit:contain; box-shadow:0 4px 16px rgba(0,0,0,.3); }
+  .banner .uni { font-family:'Amiri','Cairo',serif; font-size:1.25rem; font-weight:700; color:#f1d58a; margin:0; }
+  .banner .fac { margin:0; font-size:.92rem; opacity:.92; }
+  .card { border-radius:16px; }
+  .foot { text-align:center; margin:6px 0 10px; font-size:.85rem; color:var(--muted); }
+  .foot a { color:var(--brand); font-weight:700; text-decoration:none; }
   .head { text-align: center; margin-bottom: 14px; }
   .head h1 { margin: 0 0 4px; font-size: 1.35rem; }
   .head p { margin: 0; color: var(--muted); font-size: .92rem; }
@@ -15,6 +33,10 @@
 </head>
 <body>
 <div class="wrap narrow">
+  <div class="banner">
+    <div class="logos"><img src="logo-azhar.png" alt="شعار جامعة الأزهر"><img src="logo-faculty.png" alt="شعار كلية التربية - جامعة الأزهر"></div>
+    <p class="uni">جامعة الأزهر</p><p class="fac">كلية التربية</p>
+  </div>
   <div class="head">
     <p>تسجيل الحضور</p>
     <h1 id="h-subject">&nbsp;</h1>
@@ -52,11 +74,13 @@
     <p id="r-time"></p>
     <button id="retry" hidden>حاول مرة أخرى</button>
   </div>
+  <p class="foot" id="fb-wrap" hidden><a id="fb-link" target="_blank" rel="noopener noreferrer">صفحتنا على فيسبوك</a></p>
 </div>
 
 <script src="config.js"></script>
 <script>
 var CFG = window.APP_CONFIG || {};
+(function () { var u = (CFG.FACEBOOK_URL || '').trim(); if (/^https:\/\//i.test(u)) { document.getElementById('fb-link').href = u; document.getElementById('fb-wrap').hidden = false; } })();
 var _q = new URLSearchParams(location.search);
 var SESSION_ID = /^[A-Za-z0-9_-]{1,64}$/.test(_q.get('s') || '') ? _q.get('s') : '';
 var TOKEN = /^[A-Za-z0-9_-]{1,64}$/.test(_q.get('t') || '') ? _q.get('t') : '';
