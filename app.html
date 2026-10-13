@@ -44,24 +44,57 @@
     <button id="btn-logout">خروج</button>
   </div>
   <div class="tabs" id="tabs">
-    <button data-tab="subjects" class="on">المواد وكشوف الطلاب</button>
+    <button data-tab="dash" class="on">الرئيسية</button>
+    <button data-tab="subjects">المواد وكشوف الطلاب</button>
     <button data-tab="session">جلسة حضور</button>
     <button data-tab="reports">التقارير</button>
+    <button data-tab="lists" id="tab-lists-btn" hidden>القوائم والربط</button>
     <button data-tab="admin" id="tab-admin-btn" hidden>الإدارة</button>
   </div>
 
   <!-- المواد -->
-  <section id="tab-subjects">
+  <!-- الرئيسية (الداشبورد) -->
+  <section id="tab-dash">
+    <div id="dash-msg" class="msg" hidden></div>
+    <div class="stats" id="dash-stats"></div>
+    <div id="dash-empty" class="card" hidden><h2>لا توجد بيانات بعد</h2><p>أنشئ مادة وارفع كشف الطلاب من تبويب «المواد وكشوف الطلاب»، ثم ابدأ جلسة حضور، وستظهر هنا الإحصائيات.</p></div>
+    <div id="dash-body">
+      <div class="card"><h2>نسبة الحضور في آخر المحاضرات</h2>
+        <div class="chart" id="ch-trend"></div><p class="cap" id="cap-trend" aria-live="polite"></p></div>
+      <div class="card"><h2>عدد التسجيلات خلال آخر 14 يومًا</h2>
+        <div class="chart" id="ch-daily"></div><p class="cap" id="cap-daily" aria-live="polite"></p></div>
+      <div class="card"><h2>نسبة الحضور حسب المادة</h2>
+        <p class="hint" style="margin-top:0">اضغط على مادة لفتح تقريرها. الأحمر: أقل من حدّ الحرمان.</p>
+        <div id="d-subj"></div></div>
+      <div class="card" id="d-dept-card" hidden><h2>نسبة الحضور حسب القسم</h2>
+        <p class="hint" style="margin-top:0">القسم يشمل ما تحته من أقسام فرعية.</p>
+        <div id="d-dept"></div></div>
+      <div class="card"><h2>طلاب معرَّضون للحرمان</h2>
+        <div class="row">
+          <div><label for="d-thr">حدّ الحضور (%)</label><input id="d-thr" type="number" min="1" max="100" inputmode="numeric"></div>
+          <div><label for="d-risk-subj">المادة</label><select id="d-risk-subj"></select></div>
+        </div>
+        <p class="hint" id="d-risk-note"></p>
+        <p><button id="d-risk-xlsx" type="button">⬇ تحميل القائمة Excel</button></p>
+        <div class="scroll"><table><thead><tr><th>المادة</th><th>رقم الجلوس</th><th>الاسم</th><th>الحضور</th><th>النسبة</th></tr></thead><tbody id="d-risk-rows"></tbody></table></div>
+      </div>
+      <div class="card" id="d-lect-card" hidden><h2>نشاط المحاضرين</h2>
+        <div class="scroll"><table><thead><tr><th>المحاضر</th><th>المواد</th><th>المحاضرات</th><th>آخر محاضرة</th></tr></thead><tbody id="d-lect-rows"></tbody></table></div></div>
+    </div>
+    <p><button id="d-refresh" type="button">↻ تحديث</button></p>
+  </section>
+
+  <section id="tab-subjects" hidden>
     <div class="card" id="roster-card">
       <h2 id="roster-title">إضافة مادة وكشف طلاب</h2>
       <div id="subject-fields">
         <div class="row">
           <div><label for="f-dept">القسم</label><select id="f-dept"></select></div>
-          <div><label for="f-level">الفرقة</label><input id="f-level" list="levels" placeholder="مثال: الفرقة الرابعة"></div>
+          <div><label for="f-level">الفرقة</label><select id="f-level"></select></div>
         </div>
-        <datalist id="levels"><option value="الفرقة الأولى"><option value="الفرقة الثانية"><option value="الفرقة الثالثة"><option value="الفرقة الرابعة"><option value="الدراسات العليا"></datalist>
         <label for="f-subject">المادة</label>
-        <input id="f-subject" placeholder="اسم المادة">
+        <select id="f-subject"></select>
+        <p class="hint" id="catalog-hint" hidden></p>
         <div id="f-lecturer-box" hidden>
           <label for="f-lecturer">المحاضر</label><select id="f-lecturer"></select>
         </div>
@@ -170,6 +203,72 @@
     </div>
   </section>
 
+  <!-- القوائم والربط (للمدير) -->
+  <section id="tab-lists" hidden>
+    <div id="l-msg" class="msg" hidden></div>
+    <div class="card">
+      <h2>استيراد القسم والفرقة والمادة والمحاضر من ملف Excel</h2>
+      <p class="hint" style="margin-top:0">الأعمدة بالترتيب: <b>القسم | الفرقة | المادة | المحاضر</b> (وعمود «الكود» اختياري). القسم الفرعي اكتبه بمساره: <span dir="ltr">كلية التربية / تكنولوجيا التعليم</span>. المحاضر يُطابَق بالاسم أو البريد، ولازم يكون مسجَّلًا ومفعّلًا.</p>
+      <p><button id="im-template" type="button">⬇ تحميل نموذج Excel</button></p>
+      <label for="im-file">ملف Excel أو CSV</label>
+      <input id="im-file" type="file" accept=".xlsx,.xls,.csv">
+      <label for="im-paste">أو الصق الجدول من Excel</label>
+      <textarea id="im-paste" dir="rtl"></textarea>
+      <label class="check" style="margin-top:12px"><input id="im-create" type="checkbox" checked> إنشاء الأقسام والفرق والمواد الناقصة تلقائيًا</label>
+      <div id="im-preview" hidden>
+        <p class="hint" id="im-summary"></p>
+        <div class="scroll" style="max-height:420px;overflow:auto"><table><thead><tr><th>#</th><th>القسم</th><th>الفرقة</th><th>المادة</th><th>المحاضر</th><th>الحالة</th></tr></thead><tbody id="im-rows"></tbody></table></div>
+        <button id="im-go" class="primary" type="button">استيراد</button>
+      </div>
+      <div id="im-msg" class="msg" hidden></div>
+    </div>
+    <div class="card">
+      <h2>ربط القسم والفرقة والمادة والمحاضر</h2>
+      <p class="hint" style="margin-top:0">اختر من القوائم ثم اضغط «ربط». المحاضر يظهر في قائمة المحاضرين بعد أن يسجّل دخوله مرة واحدة (أضفه أولًا من «الإدارة»).</p>
+      <div class="row">
+        <div><label for="as-dept">القسم</label><select id="as-dept"></select></div>
+        <div><label for="as-level">الفرقة</label><select id="as-level"></select></div>
+      </div>
+      <div class="row">
+        <div><label for="as-course">المادة</label><select id="as-course"></select></div>
+        <div><label for="as-lect">المحاضر</label><select id="as-lect"></select></div>
+      </div>
+      <button id="as-add" class="primary" type="button">ربط</button>
+      <div id="as-msg" class="msg" hidden></div>
+    </div>
+    <div class="card">
+      <h2>المواد المسنَدة</h2>
+      <div class="row">
+        <div><label for="as-fdept">تصفية بالقسم</label><select id="as-fdept"></select></div>
+        <div><label for="as-flect">تصفية بالمحاضر</label><select id="as-flect"></select></div>
+      </div>
+      <p class="hint" id="as-count"></p>
+      <div class="scroll"><table><thead><tr><th>القسم</th><th>الفرقة</th><th>المادة</th><th>المحاضر</th><th>الطلاب</th></tr></thead><tbody id="as-rows"></tbody></table></div>
+    </div>
+    <div class="card">
+      <h2>كتالوج المواد</h2>
+      <p class="hint" style="margin-top:0">قائمة المواد المعتمدة. ربط المادة بقسم اختياري، ويقيّد ظهورها في قائمة ذلك القسم وما تحته.</p>
+      <div class="row">
+        <div><label for="c-name">اسم المادة</label><input id="c-name" placeholder="مثال: تصميم المواقع التعليمية"></div>
+        <div><label for="c-code">الكود (اختياري)</label><input id="c-code" dir="ltr" placeholder="ED401"></div>
+      </div>
+      <label for="c-dept">القسم</label>
+      <select id="c-dept"></select>
+      <button id="c-add" class="primary" type="button">إضافة مادة</button>
+      <ul class="plain" id="c-list"></ul>
+    </div>
+    <div class="card">
+      <h2>الفرق الدراسية</h2>
+      <div class="row"><input id="lv-name" placeholder="مثال: الفرقة الخامسة"><button id="lv-add" type="button">إضافة</button></div>
+      <ul class="plain" id="lv-list"></ul>
+    </div>
+    <div class="card">
+      <h2>المحاضرون</h2>
+      <p class="hint" style="margin-top:0">لإضافة محاضر جديد أو إيقافه استخدم تبويب «الإدارة».</p>
+      <div class="scroll"><table><thead><tr><th>الاسم</th><th>القسم</th><th>الصلاحية</th><th>الحالة</th><th>المواد المسنَدة</th></tr></thead><tbody id="l-lects"></tbody></table></div>
+    </div>
+  </section>
+
   <!-- الإدارة -->
   <section id="tab-admin" hidden>
     <div class="card">
@@ -238,7 +337,7 @@ async function afterSignIn() {
   }
   me = { role: p.role, name: p.name, department_id: p.department_id, id: (await sb.auth.getUser()).data.user.id };
   $('who').textContent = (me.name || 'مرحبًا') + (me.role === 'admin' ? ' — مدير النظام' : '');
-  $('tab-admin-btn').hidden = me.role !== 'admin';
+  $('tab-admin-btn').hidden = me.role !== 'admin'; $('tab-lists-btn').hidden = me.role !== 'admin';
   $('f-lecturer-box').hidden = me.role !== 'admin';
   show('view-login', false); show('view-app', true);
   await loadAll();
@@ -302,8 +401,10 @@ $('btn-logout').onclick = async function () {
 $('tabs').onclick = function (e) {
   var b = e.target.closest('button[data-tab]'); if (!b) return;
   [].forEach.call($('tabs').children, function (x) { x.classList.toggle('on', x === b); });
-  ['subjects', 'session', 'reports', 'admin'].forEach(function (t) { $('tab-' + t).hidden = (t !== b.dataset.tab); });
+  ['dash', 'subjects', 'session', 'reports', 'lists', 'admin'].forEach(function (t) { $('tab-' + t).hidden = (t !== b.dataset.tab); });
+  if (b.dataset.tab === 'dash') loadDash();
   if (b.dataset.tab === 'session') refreshRecent();
+  if (b.dataset.tab === 'lists') loadLists();
   if (b.dataset.tab === 'admin') loadAdmin();
 };
 
@@ -315,9 +416,12 @@ async function loadAll() {
     var p = await sb.from('profiles').select('id,full_name,email,role,active,department_id').order('full_name');
     profiles = p.data || [];
   }
+  await loadCatalog();
   fillDepts();
+  fillCatalog();
   await loadSubjects();
   await resumeLive();
+  loadDash();
 }
 
 // شجرة الأقسام: ترتيب عمق أولًا مع المسار الكامل لكل قسم
@@ -342,7 +446,7 @@ function deptPath(id) {
 
 function fillDepts() {
   var tree = deptTree();
-  [['f-dept', '— اختر القسم —'], ['a-udept', '— بدون قسم —'], ['a-dparent', '— قسم رئيسي (بدون أب) —']].forEach(function (cfg) {
+  [['f-dept', '— اختر القسم —'], ['a-udept', '— بدون قسم —'], ['a-dparent', '— قسم رئيسي (بدون أب) —'], ['as-dept', '— اختر القسم —'], ['as-fdept', 'كل الأقسام'], ['c-dept', '— لكل الأقسام —']].forEach(function (cfg) {
     var s = $(cfg[0]), cur = s.value; s.innerHTML = '';
     var o0 = el('option', '', cfg[1]); o0.value = ''; s.appendChild(o0);
     tree.forEach(function (d) { var o = el('option', '', d.path); o.value = d.id; s.appendChild(o); });
@@ -357,7 +461,7 @@ function fillDepts() {
 
 async function loadSubjects() {
   var r = await sb.from('subjects')
-    .select('id,name,level,lecturer_id,lecturer_name,archived,department_id,subject_students(count)')
+    .select('id,name,level,lecturer_id,lecturer_name,archived,department_id,course_id,level_id,subject_students(count)')
     .order('created_at', { ascending: false });
   if (r.error) { $('subjects-list').textContent = errText(r.error); return; }
   subjects = r.data || [];
@@ -470,6 +574,7 @@ function resetRosterForm() {
   $('roster-save').textContent = 'حفظ المادة والكشف';
   $('roster-cancel').hidden = true;
   ['f-subject', 'f-level'].forEach(function (i) { $(i).value = ''; });
+  fillCatalog();
 }
 function startAddMode(s) {
   resetRosterForm(); addToId = s.id;
@@ -499,7 +604,7 @@ async function saveStudents(subjectId, list) {
 
 $('roster-save').onclick = async function () {
   var btn = $('roster-save');
-  if (!students.length) { msg('roster-msg', 'حمّل ملف الكشف أو الصق الأسماء أولًا.', 'bad'); return; }
+  if (addToId && !students.length) { msg('roster-msg', 'حمّل ملف الكشف أو الصق الأسماء أولًا.', 'bad'); return; }
   btn.disabled = true; msg('roster-msg', 'جارٍ الحفظ…');
   try {
     var text;
@@ -507,16 +612,20 @@ $('roster-save').onclick = async function () {
       var r = await saveStudents(addToId, students);
       text = 'تمت إضافة ' + r.added + ' طالب (الإجمالي ' + r.total + ')' + (r.duplicates ? ' — ' + r.duplicates + ' موجود مسبقًا وتم تجاهله' : '') + '.';
     } else {
-      var name = $('f-subject').value.trim(), level = $('f-level').value.trim();
-      if (!name || !level) throw new Error('اكتب اسم المادة والفرقة.');
+      var courseId = $('f-subject').value, levelId = $('f-level').value, deptId = $('f-dept').value;
+      if (!deptId || !levelId || !courseId) throw new Error('اختر القسم والفرقة والمادة من القوائم.');
       var lecturer = me.role === 'admin' ? $('f-lecturer').value : me.id;
-      var ins = await sb.from('subjects').insert({ name: name, level: level, department_id: $('f-dept').value || null, lecturer_id: lecturer }).select('id').single();
+      var ins = await sb.from('subjects').insert({ course_id: courseId, level_id: levelId, department_id: deptId, lecturer_id: lecturer }).select('id').single();
       if (ins.error) throw ins.error;
-      var r2 = await saveStudents(ins.data.id, students);
-      text = 'تم إنشاء المادة وفيها ' + r2.total + ' طالب' + (r2.duplicates ? ' (' + r2.duplicates + ' رقم جلوس مكرر تم تجاهله)' : '') + '.';
+      if (students.length) {
+        var r2 = await saveStudents(ins.data.id, students);
+        text = 'تم إنشاء المادة وفيها ' + r2.total + ' طالب' + (r2.duplicates ? ' (' + r2.duplicates + ' رقم جلوس مكرر تم تجاهله)' : '') + '.';
+      } else {
+        text = 'تم إنشاء المادة بدون طلاب. أضف الكشف لاحقًا بزر «إضافة طلاب» في قائمة موادي.';
+      }
     }
     resetRosterForm(); msg('roster-msg', text, 'ok'); await loadSubjects();
-  } catch (e) { msg('roster-msg', errText(e), 'bad'); }
+  } catch (e) { msg('roster-msg', assignErr(e), 'bad'); }
   btn.disabled = false;
 };
 
@@ -771,9 +880,514 @@ $('a-user-add').onclick = async function () {
   else { $('a-email').value = ''; $('a-name').value = ''; msg('a-msg', 'تمت الإضافة. اطلب منه الدخول وإنشاء حساب بنفس البريد.', 'ok'); loadAdmin(); }
 };
 
+/* ============ الداشبورد ============ */
+var dash = null, dashThr = parseInt(lsGet('att_thr'), 10) || 75, dashSeq = 0;
+$('d-thr').value = dashThr;
+var SVGNS = 'http://www.w3.org/2000/svg';
+function sv(tag, attrs, text) {
+  var e = document.createElementNS(SVGNS, tag);
+  for (var k in attrs) e.setAttribute(k, attrs[k]);
+  if (text != null) e.textContent = text;
+  return e;
+}
+function pctOf(n, d) { return d > 0 ? Math.round(n * 1000 / d) / 10 : null; }
+function fmtPct(p) { return p == null ? '—' : p + '%'; }
+function niceMax(v) {
+  if (v <= 5) return 5;
+  var p = Math.pow(10, Math.floor(Math.log(v) / Math.LN10)), f = v / p;
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p;
+}
+
+// رسم أعمدة بسيط (SVG): items = [{label, v, tip}]، o = {max, thr, unit, aria, cap}
+function barChart(box, capEl, items, o) {
+  box.innerHTML = ''; capEl.textContent = '';
+  var W = Math.max(280, Math.round(box.clientWidth || 640)), H = 200, pl = 38, pr = 8, pt = 12, pb = 26, n = items.length;
+  var maxv = o.max || niceMax(items.reduce(function (m, i) { return Math.max(m, i.v); }, 0));
+  var svg = sv('svg', { viewBox: '0 0 ' + W + ' ' + H, width: W, height: H, role: 'img', 'aria-label': o.aria, class: 'chsvg' });
+  function y(v) { return pt + (H - pt - pb) * (1 - v / maxv); }
+  [0, maxv / 2, maxv].forEach(function (g) {
+    svg.appendChild(sv('line', { x1: pl, x2: W - pr, y1: y(g), y2: y(g), class: g === 0 ? 'ch-base' : 'ch-grid' }));
+    svg.appendChild(sv('text', { x: pl - 6, y: y(g) + 4, 'text-anchor': 'end', class: 'ch-txt' }, String(Math.round(g * 10) / 10) + (o.unit || '')));
+  });
+  var slot = (W - pl - pr) / n, bw = Math.min(26, slot * 0.62), step = Math.max(1, Math.ceil(n / Math.max(2, Math.floor((W - pl - pr) / 58))));
+  items.forEach(function (it, i) {
+    var cx = pl + slot * (i + 0.5), h = Math.max(it.v > 0 ? 2 : 0, (H - pt - pb) * it.v / maxv);
+    if (h > 0) svg.appendChild(sv('rect', { x: cx - bw / 2, y: H - pb - h, width: bw, height: h, rx: 3, class: 'ch-bar' + (o.thr != null && it.v < o.thr ? ' low' : '') }));
+    if (i === n - 1 || (i % step === 0 && n - 1 - i >= Math.ceil(step / 2))) svg.appendChild(sv('text', { x: cx, y: H - 8, 'text-anchor': 'middle', class: 'ch-txt' }, it.label));
+    var hit = sv('rect', { x: pl + slot * i, y: pt, width: slot, height: H - pt - pb, class: 'ch-hit', tabindex: '0' });
+    var show = function () { capEl.textContent = it.tip; };
+    hit.addEventListener('mouseenter', show); hit.addEventListener('focus', show); hit.addEventListener('click', show);
+    hit.appendChild(sv('title', {}, it.tip));
+    svg.appendChild(hit);
+  });
+  if (o.thr != null) {
+    svg.appendChild(sv('line', { x1: pl, x2: W - pr, y1: y(o.thr), y2: y(o.thr), class: 'ch-thr' }));
+  }
+  box.appendChild(svg);
+  capEl.textContent = o.cap || '';
+}
+
+function rateRow(title, meta, rate, thr, indent, onclick) {
+  var row = el('div', 'rrow' + (onclick ? ' click' : ''));
+  if (indent) row.style.paddingInlineStart = (indent * 18) + 'px';
+  var head = el('div', 'rhead'); head.appendChild(el('span', 'rname', title)); if (meta) head.appendChild(el('span', 'rmeta', meta));
+  row.appendChild(head);
+  var wrap = el('div', 'rbar');
+  var track = el('div', 'track'), fill = el('div', 'fill' + (rate != null && rate < thr ? ' low' : ''));
+  fill.style.width = (rate == null ? 0 : Math.max(rate, 1)) + '%'; track.appendChild(fill);
+  wrap.appendChild(track); wrap.appendChild(el('span', 'rpct', (rate != null && rate < thr ? '⚠ ' : '') + fmtPct(rate)));
+  row.appendChild(wrap);
+  if (onclick) { row.tabIndex = 0; row.onclick = onclick; row.onkeydown = function (e) { if (e.key === 'Enter') onclick(); }; }
+  return row;
+}
+
+function openReport(id) {
+  $('r-subject').value = id;
+  document.querySelector('[data-tab="reports"]').click();
+  $('r-go').click();
+}
+function isUnderDept(deptId, ancId) {
+  var guard = 0, byId = {};
+  departments.forEach(function (d) { byId[d.id] = d; });
+  while (deptId && guard++ < 25) { if (deptId === ancId) return true; deptId = byId[deptId] && byId[deptId].parent_id; }
+  return false;
+}
+
+async function loadDash() {
+  var seq = ++dashSeq;
+  msg('dash-msg', 'جارٍ تحميل الإحصائيات…');
+  var r = await sb.rpc('dashboard_stats', { p_threshold: dashThr });
+  if (seq !== dashSeq) return;
+  if (r.error) { msg('dash-msg', errText(r.error), 'bad'); return; }
+  msg('dash-msg', ''); dash = r.data; renderDash();
+}
+
+function renderDash() {
+  var S = dash.subjects || [], thr = dash.threshold;
+  var st = 0, se = 0, rec = 0, den = 0;
+  S.forEach(function (x) { st += x.students; se += x.sessions; rec += x.records; den += x.students * x.sessions; });
+  $('dash-empty').hidden = S.length > 0; $('dash-body').hidden = !S.length;
+  var tiles = [[S.length, 'مادة'], [st, 'طالب'], [se, 'محاضرة'], [fmtPct(pctOf(rec, den)), 'متوسط الحضور'],
+               [dash.today_sessions + ' / ' + dash.today_records, 'اليوم: محاضرات / تسجيلات'], [dash.at_risk_total, 'معرَّضون للحرمان (<' + thr + '%)']];
+  var box = $('dash-stats'); box.innerHTML = '';
+  tiles.forEach(function (t) { var d = el('div', 'stat'); d.appendChild(el('b', '', String(t[0]))); d.appendChild(el('span', '', t[1])); box.appendChild(d); });
+  if (!S.length) return;
+
+  var tr = dash.trend || [];
+  if (tr.length) barChart($('ch-trend'), $('cap-trend'), tr.map(function (t) {
+    var p = pctOf(t.present, t.total) || 0;
+    return { label: t.label.slice(0, 5), v: p, tip: t.subject + ' — ' + t.label + ': حضر ' + t.present + ' من ' + t.total + ' (' + p + '%)' };
+  }), { max: 100, thr: thr, unit: '%', aria: 'نسبة الحضور في آخر المحاضرات', cap: 'الخط الأحمر المتقطع = حدّ الحرمان ' + thr + '%. مرّر على عمود أو اضغط عليه لعرض التفاصيل.' });
+  else { $('ch-trend').textContent = 'لا توجد محاضرات بعد.'; $('cap-trend').textContent = ''; }
+
+  var dl = dash.daily || [];
+  if (dl.some(function (d) { return d.n > 0; })) barChart($('ch-daily'), $('cap-daily'), dl.map(function (d) {
+    return { label: d.day, v: d.n, tip: d.day + ': ' + d.n + ' تسجيل' };
+  }), { aria: 'عدد التسجيلات اليومية', cap: 'مرّر على عمود أو اضغط عليه لعرض التفاصيل.' });
+  else { $('ch-daily').textContent = 'لا توجد تسجيلات في آخر 14 يومًا.'; $('cap-daily').textContent = ''; }
+
+  var sbox = $('d-subj'); sbox.innerHTML = '';
+  S.map(function (x) { return { x: x, rate: pctOf(x.records, x.students * x.sessions) }; })
+    .sort(function (a, b) { return (a.rate == null ? 999 : a.rate) - (b.rate == null ? 999 : b.rate); })
+    .forEach(function (o) {
+      var meta = o.x.level + ' · ' + o.x.sessions + ' محاضرة · ' + o.x.students + ' طالب' + (dash.is_admin && o.x.lecturer ? ' · ' + o.x.lecturer : '');
+      sbox.appendChild(rateRow(o.x.name, o.rate == null ? meta + ' · لا توجد محاضرات بعد' : meta, o.rate, thr, 0, function () { openReport(o.x.id); }));
+    });
+
+  var dbox = $('d-dept'); dbox.innerHTML = ''; var any = false;
+  deptTree().forEach(function (d) {
+    var n = 0, r2 = 0, dn = 0;
+    S.forEach(function (x) { if (x.department_id && isUnderDept(x.department_id, d.id)) { n++; r2 += x.records; dn += x.students * x.sessions; } });
+    if (!n) return; any = true;
+    dbox.appendChild(rateRow(d.name, n + ' مادة', pctOf(r2, dn), thr, d.depth, null));
+  });
+  $('d-dept-card').hidden = !any;
+
+  renderRiskFilter(); renderRisk();
+
+  $('d-lect-card').hidden = !dash.is_admin;
+  var lb = $('d-lect-rows'); lb.innerHTML = '';
+  (dash.lecturers || []).forEach(function (l) {
+    var tr2 = el('tr'); [l.name, String(l.subjects), String(l.sessions), l.last || '—'].forEach(function (v) { tr2.appendChild(el('td', '', v)); }); lb.appendChild(tr2);
+  });
+}
+
+function renderRiskFilter() {
+  var sel = $('d-risk-subj'), cur = sel.value, seen = {}; sel.innerHTML = '';
+  var o0 = el('option', '', 'كل المواد'); o0.value = ''; sel.appendChild(o0);
+  (dash.at_risk || []).forEach(function (r) { if (!seen[r.subject]) { seen[r.subject] = 1; var o = el('option', '', r.subject); o.value = r.subject; sel.appendChild(o); } });
+  sel.value = cur && seen[cur] ? cur : '';
+}
+function riskRows() {
+  var f = $('d-risk-subj').value;
+  return (dash.at_risk || []).filter(function (r) { return !f || r.subject === f; });
+}
+function renderRisk() {
+  var rows = riskRows(), tb = $('d-risk-rows'); tb.innerHTML = '';
+  rows.forEach(function (r) {
+    var tr = el('tr', 'low');
+    [r.subject, r.seat, r.name, r.attended + ' من ' + r.sessions, r.pct + '%'].forEach(function (v) { tr.appendChild(el('td', '', v)); });
+    tb.appendChild(tr);
+  });
+  var note = rows.length ? 'عدد الطلاب المعروضين: ' + rows.length : 'لا يوجد طلاب أقل من ' + dash.threshold + '%.';
+  if (dash.at_risk_total > (dash.at_risk || []).length) note += ' (يُعرض أسوأ ' + dash.at_risk.length + ' من ' + dash.at_risk_total + ' — استخدم تقرير المادة للقائمة الكاملة.)';
+  $('d-risk-note').textContent = note + ' يُحسب الحضور من عدد المحاضرات المنعقدة حتى الآن.';
+  $('d-risk-xlsx').hidden = !rows.length;
+}
+$('d-risk-subj').onchange = renderRisk;
+$('d-thr').onchange = function () {
+  var v = parseInt(this.value, 10);
+  if (!(v >= 1 && v <= 100)) { this.value = dashThr; return; }
+  dashThr = v; lsSet('att_thr', String(v)); loadDash();
+};
+$('d-refresh').onclick = loadDash;
+var rzT = null;
+window.addEventListener('resize', function () {
+  clearTimeout(rzT);
+  rzT = setTimeout(function () { if (dash && !$('tab-dash').hidden && !$('view-app').hidden) renderDash(); }, 200);
+});
+
+function downloadXlsx(aoa, sheetName, fileName) {
+  if (typeof XLSX === 'undefined') { msg('dash-msg', 'تعذّر تحميل مكتبة Excel.', 'bad'); return; }
+  var ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [{ wch: 28 }, { wch: 12 }, { wch: 30 }, { wch: 12 }, { wch: 10 }];
+  var wb = XLSX.utils.book_new(); wb.Workbook = { Views: [{ RTL: true }] };
+  XLSX.utils.book_append_sheet(wb, ws, sheetName.replace(/[\[\]\*\?\/\\:]/g, '-').substring(0, 31));
+  var out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  var blob = new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  var link = document.createElement('a');
+  link.href = URL.createObjectURL(blob); link.download = fileName.replace(/[\\\/:*?"<>|]/g, '-') + '.xlsx';
+  document.body.appendChild(link); link.click(); link.remove();
+  setTimeout(function () { URL.revokeObjectURL(link.href); }, 4000);
+}
+$('d-risk-xlsx').onclick = function () {
+  var aoa = [['المادة', 'رقم الجلوس', 'الاسم', 'الحضور', 'عدد المحاضرات', 'النسبة %']];
+  riskRows().forEach(function (r) { aoa.push([r.subject, r.seat, r.name, r.attended, r.sessions, r.pct]); });
+  downloadXlsx(aoa, 'المعرضون للحرمان', 'معرضون للحرمان (أقل من ' + dash.threshold + '%)');
+};
+
+/* ============ القوائم والربط ============ */
+var levels = [], courses = [];
+function assignErr(e) {
+  var t = errText(e);
+  if (/courses_dept_name_uq|levels_name_uq/i.test(t)) return 'موجود بالفعل في القائمة.';
+  if (/subjects_assignment_uq/i.test(t)) return 'هذه المادة مربوطة بالفعل بنفس المحاضر في نفس القسم والفرقة.';
+  if (/foreign key|23503/i.test(t + ((e && e.code) || ''))) return 'لا يمكن الحذف لأنه مستخدم في مواد مسنَدة. احذف الربط أولًا.';
+  if (/duplicate key/i.test(t)) return 'موجود بالفعل.';
+  return t;
+}
+async function loadCatalog() {
+  var a = await sb.from('levels').select('id,name,sort').order('sort').order('name');
+  var b = await sb.from('courses').select('id,name,code,department_id').order('name');
+  levels = a.data || []; courses = b.data || [];
+}
+function courseLabel(c) { return c.name + (c.code ? ' (' + c.code + ')' : ''); }
+function courseFits(c, deptId) {
+  return !c.department_id || !deptId || c.department_id === deptId || isUnderDept(deptId, c.department_id) || isUnderDept(c.department_id, deptId);
+}
+function fillSel(id, ph, items, label) {
+  var sel = $(id), cur = sel.value; sel.innerHTML = '';
+  var o0 = el('option', '', ph); o0.value = ''; sel.appendChild(o0);
+  items.forEach(function (x) { var o = el('option', '', label(x)); o.value = x.id; sel.appendChild(o); });
+  sel.value = cur && items.some(function (x) { return x.id === cur; }) ? cur : '';
+}
+function fillCatalog() {
+  fillSel('f-level', '— اختر الفرقة —', levels, function (x) { return x.name; });
+  fillSel('f-subject', '— اختر المادة —', courses.filter(function (c) { return courseFits(c, $('f-dept').value); }), courseLabel);
+  fillSel('as-level', '— اختر الفرقة —', levels, function (x) { return x.name; });
+  fillSel('as-course', '— اختر المادة —', courses.filter(function (c) { return courseFits(c, $('as-dept').value); }), courseLabel);
+  var act = profiles.filter(function (x) { return x.active; });
+  fillSel('as-lect', '— اختر المحاضر —', act, function (x) { return x.full_name || x.email; });
+  fillSel('as-flect', 'كل المحاضرين', profiles, function (x) { return x.full_name || x.email; });
+  var h = $('catalog-hint');
+  if (!levels.length || !courses.length) {
+    h.hidden = false;
+    h.textContent = me && me.role === 'admin' ? 'القوائم ناقصة: أضف الفرق والمواد من تبويب «القوائم والربط».' : 'لا توجد فرق أو مواد في القوائم بعد. اطلب من مدير النظام إضافتها.';
+  } else h.hidden = true;
+}
+$('f-dept').onchange = fillCatalog;
+$('as-dept').onchange = fillCatalog;
+
+function editInline(li, current, save) {
+  li.innerHTML = '';
+  var inp = el('input'); inp.value = current; inp.style.width = '58%'; inp.setAttribute('aria-label', 'الاسم');
+  var ok = el('button', '', 'حفظ'), no = el('button', '', 'إلغاء');
+  [ok, no].forEach(function (b) { b.style.padding = '3px 10px'; b.style.marginInlineStart = '6px'; });
+  ok.onclick = function () { var v = inp.value.trim(); if (v) save(v); };
+  no.onclick = renderLists;
+  inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') ok.click(); });
+  li.appendChild(inp); li.appendChild(ok); li.appendChild(no); inp.focus();
+}
+function smallBtn(text, cls, fn) { var b = el('button', cls || '', text); b.style.padding = '3px 10px'; b.style.marginInlineStart = '6px'; b.onclick = fn; return b; }
+
+async function loadLists(keepMsg) {
+  if (me.role !== 'admin') return;
+  if (!keepMsg) msg('l-msg', '');
+  var d = await sb.from('departments').select('id,name,parent_id').order('name'); departments = d.data || [];
+  var p = await sb.from('profiles').select('id,full_name,email,role,active,department_id').order('full_name'); profiles = p.data || [];
+  await loadCatalog(); await loadSubjects();
+  fillDepts(); fillCatalog(); renderLists();
+}
+
+function renderLists() {
+  var lv = $('lv-list'); lv.innerHTML = '';
+  if (!levels.length) lv.appendChild(el('li', '', 'لا توجد فرق. أضف أول فرقة.'));
+  levels.forEach(function (x) {
+    var li = el('li', '', x.name + ' ');
+    li.appendChild(smallBtn('تعديل', '', function () {
+      editInline(li, x.name, async function (v) {
+        var r = await sb.from('levels').update({ name: v }).eq('id', x.id);
+        if (r.error) msg('l-msg', assignErr(r.error), 'bad'); else { msg('l-msg', ''); await loadLists(); }
+      });
+    }));
+    li.appendChild(smallBtn('حذف', 'danger', async function () {
+      var r = await sb.from('levels').delete().eq('id', x.id);
+      if (r.error) msg('l-msg', assignErr(r.error), 'bad'); else { msg('l-msg', ''); await loadLists(); }
+    }));
+    lv.appendChild(li);
+  });
+
+  var cl = $('c-list'); cl.innerHTML = '';
+  if (!courses.length) cl.appendChild(el('li', '', 'لا توجد مواد في الكتالوج. أضف أول مادة.'));
+  courses.forEach(function (x) {
+    var li = el('li', '', courseLabel(x) + (x.department_id ? ' — ' + deptPath(x.department_id) : ' — كل الأقسام') + ' ');
+    li.appendChild(smallBtn('تعديل', '', function () {
+      editInline(li, x.name, async function (v) {
+        var r = await sb.from('courses').update({ name: v }).eq('id', x.id);
+        if (r.error) msg('l-msg', assignErr(r.error), 'bad'); else { msg('l-msg', ''); await loadLists(); }
+      });
+    }));
+    li.appendChild(smallBtn('حذف', 'danger', async function () {
+      var r = await sb.from('courses').delete().eq('id', x.id);
+      if (r.error) msg('l-msg', assignErr(r.error), 'bad'); else { msg('l-msg', ''); await loadLists(); }
+    }));
+    cl.appendChild(li);
+  });
+
+  var fd = $('as-fdept').value, fl = $('as-flect').value;
+  var rows = subjects.filter(function (s) {
+    return (!fd || (s.department_id && isUnderDept(s.department_id, fd))) && (!fl || s.lecturer_id === fl);
+  });
+  $('as-count').textContent = rows.length + ' مادة مسنَدة' + (subjects.length !== rows.length ? ' (من ' + subjects.length + ')' : '') + '.';
+  var tb = $('as-rows'); tb.innerHTML = '';
+  var act = profiles.filter(function (x) { return x.active; });
+  rows.forEach(function (s) {
+    var tr = el('tr');
+    var cnt = (s.subject_students && s.subject_students[0] && s.subject_students[0].count) || 0;
+    tr.appendChild(el('td', '', deptPath(s.department_id) || '—'));
+    tr.appendChild(el('td', '', s.level));
+    var tdn = el('td', '', s.name); if (s.archived) tdn.appendChild(el('span', 'tag', 'مؤرشفة')); tr.appendChild(tdn);
+    var td = el('td'), sel = el('select');
+    sel.setAttribute('aria-label', 'المحاضر');
+    (act.some(function (x) { return x.id === s.lecturer_id; }) ? act : act.concat(profiles.filter(function (x) { return x.id === s.lecturer_id; }))).forEach(function (x) {
+      var o = el('option', '', x.full_name || x.email); o.value = x.id; sel.appendChild(o);
+    });
+    sel.value = s.lecturer_id;
+    sel.onchange = async function () {
+      var r = await sb.from('subjects').update({ lecturer_id: sel.value }).eq('id', s.id);
+      if (r.error) { msg('l-msg', assignErr(r.error), 'bad'); sel.value = s.lecturer_id; }
+      else { msg('l-msg', 'تم تغيير المحاضر.', 'ok'); await loadLists(true); }
+    };
+    td.appendChild(sel); tr.appendChild(td);
+    tr.appendChild(el('td', '', String(cnt)));
+    tb.appendChild(tr);
+  });
+
+  var lb = $('l-lects'); lb.innerHTML = '';
+  profiles.forEach(function (p) {
+    var n = subjects.filter(function (s) { return s.lecturer_id === p.id && !s.archived; }).length;
+    var tr = el('tr');
+    [p.full_name || p.email, deptPath(p.department_id) || '—', p.role === 'admin' ? 'مدير' : 'محاضر', p.active ? 'نشط' : 'موقوف', String(n)].forEach(function (v) { tr.appendChild(el('td', '', v)); });
+    lb.appendChild(tr);
+  });
+}
+$('as-fdept').onchange = renderLists;
+$('as-flect').onchange = renderLists;
+
+$('lv-add').onclick = async function () {
+  var n = $('lv-name').value.trim(); if (!n) return;
+  var mx = levels.reduce(function (m, x) { return Math.max(m, x.sort || 0); }, 0);
+  var r = await sb.from('levels').insert({ name: n, sort: mx + 1 });
+  if (r.error) msg('l-msg', assignErr(r.error), 'bad'); else { $('lv-name').value = ''; msg('l-msg', ''); await loadLists(); }
+};
+$('c-add').onclick = async function () {
+  var n = $('c-name').value.trim(); if (!n) { msg('l-msg', 'اكتب اسم المادة.', 'bad'); return; }
+  var r = await sb.from('courses').insert({ name: n, code: $('c-code').value.trim(), department_id: $('c-dept').value || null });
+  if (r.error) msg('l-msg', assignErr(r.error), 'bad'); else { $('c-name').value = ''; $('c-code').value = ''; msg('l-msg', ''); await loadLists(); }
+};
+$('as-add').onclick = async function () {
+  var dept = $('as-dept').value, lv = $('as-level').value, co = $('as-course').value, lec = $('as-lect').value;
+  if (!dept || !lv || !co || !lec) { msg('as-msg', 'اختر القسم والفرقة والمادة والمحاضر.', 'bad'); return; }
+  var r = await sb.from('subjects').insert({ course_id: co, level_id: lv, department_id: dept, lecturer_id: lec });
+  if (r.error) { msg('as-msg', assignErr(r.error), 'bad'); return; }
+  msg('as-msg', 'تم الربط. يجد المحاضر المادة في «موادي» ويضيف كشف الطلاب.', 'ok');
+  await loadLists();
+};
+
+/* ============ استيراد الربط من Excel ============ */
+function nk(t) {
+  return String(t == null ? '' : t).replace(/[ً-ٰٟـ]/g, '').replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+function splitPath(t) { return String(t || '').split(/\s*[\/\\>›»←]\s*/).map(function (x) { return x.replace(/\s+/g, ' ').trim(); }).filter(Boolean); }
+var imRows = [];
+
+function imParse(rows) {
+  rows = rows.filter(function (r) { return (r || []).some(function (c) { return cellStr(c) !== ''; }); });
+  var col = { dept: 0, level: 1, course: 2, lecturer: 3, code: 4 }, start = 0;
+  if (rows.length) {
+    var m = {};
+    rows[0].forEach(function (c, i) {
+      var x = nk(cellStr(c));
+      if (x.indexOf('القسم') === 0) m.dept = i; else if (x.indexOf('الفرقه') === 0) m.level = i;
+      else if (x.indexOf('الماده') === 0) m.course = i; else if (x.indexOf('المحاضر') === 0) m.lecturer = i;
+      else if (x.indexOf('الكود') === 0 || x === 'code') m.code = i;
+    });
+    var found = ['dept', 'level', 'course', 'lecturer'].filter(function (k) { return m[k] != null; });
+    if (found.length) {
+      if (found.length < 4) throw new Error('عنوان الأعمدة ناقص. المطلوب: القسم، الفرقة، المادة، المحاضر.');
+      col = { dept: m.dept, level: m.level, course: m.course, lecturer: m.lecturer, code: m.code == null ? -1 : m.code }; start = 1;
+    }
+  }
+  return rows.slice(start).map(function (r, i) {
+    function g(k) { return k < 0 ? '' : cellStr(r[k]); }
+    return { n: i + 1, dept: g(col.dept), level: g(col.level), course: g(col.course), lecturer: g(col.lecturer), code: g(col.code) };
+  });
+}
+
+function imAnalyze() {
+  var allow = $('im-create').checked, tree = deptTree(), byPath = {}, byName = {};
+  tree.forEach(function (d) { byPath[nk(d.path)] = d; (byName[nk(d.name)] = byName[nk(d.name)] || []).push(d); });
+  var lecName = {}, lecMail = {};
+  profiles.filter(function (p) { return p.active; }).forEach(function (p) { var k = nk(p.full_name); (lecName[k] = lecName[k] || []).push(p); lecMail[String(p.email || '').toLowerCase()] = p; });
+  var have = {}, seen = {};
+  subjects.forEach(function (s) { if (!s.archived) have[[nk(deptPath(s.department_id)), nk(s.level), nk(s.name), s.lecturer_id].join('|')] = 1; });
+  return imRows.map(function (r) {
+    var it = { n: r.n, dept: r.dept, level: r.level, course: r.course, lecturer: r.lecturer, code: r.code, status: 'ok', notes: [], creates: [] };
+    function fail(t) { it.status = 'err'; it.notes.push(t); }
+    if (!r.dept || !r.level || !r.course || !r.lecturer) { fail('بيانات ناقصة في الصف.'); return it; }
+    var segs = splitPath(r.dept), d = null, cpath = segs.join(' / ');
+    if (segs.length > 1) d = byPath[nk(cpath)] || null;
+    else { var c = byName[nk(segs[0])] || []; if (c.length > 1) { fail('اسم القسم متكرر؛ اكتب مساره كاملًا.'); } else d = c[0] || null; }
+    if (d) { cpath = d.path; it.deptId = d.id; }
+    else if (it.status !== 'err') { if (allow) it.creates.push('قسم'); else fail('القسم غير موجود في القائمة.'); }
+    it.deptSegs = segs;
+    var lv = levels.filter(function (x) { return nk(x.name) === nk(r.level); })[0], clevel = r.level;
+    if (lv) { clevel = lv.name; it.levelId = lv.id; } else if (allow) it.creates.push('فرقة'); else fail('الفرقة غير موجودة في القائمة.');
+    var cr = courses.filter(function (x) { return nk(x.name) === nk(r.course) && (!x.department_id || !it.deptId || courseFits(x, it.deptId)); })[0], ccourse = r.course;
+    if (cr) { ccourse = cr.name; it.courseId = cr.id; } else if (allow) it.creates.push('مادة'); else fail('المادة غير موجودة في الكتالوج.');
+    var lec = null;
+    if (r.lecturer.indexOf('@') > 0) lec = lecMail[r.lecturer.toLowerCase().trim()] || null;
+    else { var ls = lecName[nk(r.lecturer)] || []; if (ls.length > 1) fail('اسم المحاضر متكرر؛ استخدم بريده الإلكتروني.'); else lec = ls[0] || null; }
+    if (lec) it.lecId = lec.id; else if (it.status !== 'err') fail('المحاضر غير مسجَّل أو غير مفعّل. أضفه من «الإدارة» ثم يسجّل دخوله.');
+    if (it.status === 'err') return it;
+    var key = [nk(cpath), nk(clevel), nk(ccourse), it.lecId].join('|');
+    if (have[key]) { it.status = 'dup'; it.notes.push('مربوط بالفعل.'); }
+    else if (seen[key]) { it.status = 'dup'; it.notes.push('مكرر داخل الملف.'); }
+    else { seen[key] = 1; if (it.creates.length) { it.status = 'new'; it.notes.push('سيُنشأ: ' + it.creates.join('، ')); } else it.notes.push('جاهز'); }
+    return it;
+  });
+}
+
+function imRender() {
+  var box = $('im-preview'); box.hidden = !imRows.length;
+  if (!imRows.length) return;
+  var items = imAnalyze(), tb = $('im-rows'); tb.innerHTML = '';
+  var cnt = { ok: 0, new: 0, dup: 0, err: 0 };
+  items.forEach(function (it) {
+    cnt[it.status]++;
+    var tr = el('tr', it.status === 'err' ? 'low' : '');
+    [String(it.n), it.dept, it.level, it.course, it.lecturer, (it.status === 'err' ? '✕ ' : it.status === 'dup' ? '• ' : '✓ ') + it.notes.join(' ')].forEach(function (v) { tr.appendChild(el('td', '', v)); });
+    tb.appendChild(tr);
+  });
+  var go = cnt.ok + cnt.new;
+  $('im-summary').textContent = items.length + ' صف: ' + go + ' جاهز للربط' + (cnt.new ? ' (منها ' + cnt.new + ' بإنشاء عناصر جديدة)' : '') + ' · ' + cnt.dup + ' مكرر أو مربوط بالفعل · ' + cnt.err + ' فيها أخطاء (لن تُستورد).';
+  $('im-go').textContent = 'استيراد ' + go + ' صف';
+  $('im-go').disabled = !go;
+}
+
+function imLoad(rows) {
+  try { imRows = imParse(rows); } catch (e) { imRows = []; msg('im-msg', errText(e), 'bad'); imRender(); return; }
+  if (!imRows.length) { msg('im-msg', 'لم أجد صفوفًا في الملف.', 'bad'); imRender(); return; }
+  msg('im-msg', ''); imRender();
+}
+$('im-file').onchange = function () {
+  var f = this.files && this.files[0]; if (!f) return;
+  $('im-paste').value = '';
+  var isCsv = /\.csv$/i.test(f.name), reader = new FileReader();
+  reader.onerror = function () { msg('im-msg', 'تعذّرت قراءة الملف.', 'bad'); };
+  reader.onload = function () {
+    try {
+      if (typeof XLSX === 'undefined') { msg('im-msg', 'تعذّر تحميل مكتبة قراءة Excel. الصق الجدول في الخانة بدلًا من ذلك.', 'bad'); return; }
+      var wb = XLSX.read(reader.result, { type: isCsv ? 'string' : 'array' });
+      imLoad(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: false, defval: '' }));
+    } catch (e) { msg('im-msg', 'الملف غير مفهوم: ' + e.message, 'bad'); }
+  };
+  if (isCsv) reader.readAsText(f, 'UTF-8'); else reader.readAsArrayBuffer(f);
+};
+$('im-paste').oninput = function () {
+  if (!this.value.trim()) { imRows = []; imRender(); return; }
+  $('im-file').value = '';
+  imLoad(this.value.split(/\r?\n/).map(function (l) { return l.indexOf('\t') >= 0 ? l.split('\t') : l.split(/;|،|,/); }));
+};
+$('im-create').onchange = imRender;
+$('im-template').onclick = function () {
+  downloadXlsx([['القسم', 'الفرقة', 'المادة', 'المحاضر', 'الكود (اختياري)'],
+    ['كلية التربية / تكنولوجيا التعليم', 'الفرقة الرابعة', 'البرمجيات التعليمية', 'د/ أحمد محمد', 'ED401'],
+    ['كلية التربية / تكنولوجيا التعليم', 'الفرقة الأولى', 'التصميم التعليمي الشامل', 'د/ منى علي', 'ED101']], 'نموذج الربط', 'نموذج استيراد المواد والمحاضرين');
+};
+
+async function imEnsureDept(segs, cnt) {
+  var parent = null;
+  for (var i = 0; i < segs.length; i++) {
+    var p = parent, hit = departments.filter(function (d) { return (d.parent_id || null) === p && nk(d.name) === nk(segs[i]); })[0];
+    if (!hit) {
+      var r = await sb.from('departments').insert({ name: segs[i], parent_id: p }).select('id,name,parent_id').single();
+      if (r.error) throw r.error;
+      departments.push(r.data); hit = r.data; cnt.d++;
+    }
+    parent = hit.id;
+  }
+  return parent;
+}
+
+$('im-go').onclick = async function () {
+  var items = imAnalyze().filter(function (i) { return i.status === 'ok' || i.status === 'new'; });
+  if (!items.length) return;
+  var btn = $('im-go'); btn.disabled = true;
+  var cnt = { d: 0, l: 0, c: 0 }, linked = 0, failed = [];
+  for (var k = 0; k < items.length; k++) {
+    var it = items[k];
+    msg('im-msg', 'جارٍ الاستيراد… ' + (k + 1) + ' / ' + items.length);
+    try {
+      var deptId = it.deptId || await imEnsureDept(it.deptSegs, cnt);
+      var lv = levels.filter(function (x) { return nk(x.name) === nk(it.level); })[0];
+      if (!lv) {
+        var mx = levels.reduce(function (m, x) { return Math.max(m, x.sort || 0); }, 0);
+        var rl = await sb.from('levels').insert({ name: it.level, sort: mx + 1 }).select('id,name,sort').single();
+        if (rl.error) throw rl.error; levels.push(rl.data); lv = rl.data; cnt.l++;
+      }
+      var cr = courses.filter(function (x) { return nk(x.name) === nk(it.course) && (!x.department_id || courseFits(x, deptId)); })[0];
+      if (!cr) {
+        var rc = await sb.from('courses').insert({ name: it.course, code: it.code || '', department_id: null }).select('id,name,code,department_id').single();
+        if (rc.error) throw rc.error; courses.push(rc.data); cr = rc.data; cnt.c++;
+      }
+      var ri = await sb.from('subjects').insert({ course_id: cr.id, level_id: lv.id, department_id: deptId, lecturer_id: it.lecId });
+      if (ri.error) throw ri.error;
+      linked++;
+    } catch (e) { failed.push('صف ' + it.n + ': ' + assignErr(e)); }
+  }
+  var text = 'تم ربط ' + linked + ' مادة' + (cnt.d || cnt.l || cnt.c ? ' (أُنشئ: ' + cnt.d + ' قسم، ' + cnt.l + ' فرقة، ' + cnt.c + ' مادة)' : '') + '.';
+  if (failed.length) text += ' تعذّر ' + failed.length + ': ' + failed.slice(0, 5).join(' | ');
+  imRows = []; $('im-file').value = ''; $('im-paste').value = ''; imRender();
+  await loadLists(true);
+  msg('im-msg', text, failed.length ? 'bad' : 'ok');
+  btn.disabled = false;
+};
+
 init();
 </script>
 </body>
 </html>
+
 
 
