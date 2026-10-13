@@ -173,8 +173,11 @@
   <!-- الإدارة -->
   <section id="tab-admin" hidden>
     <div class="card">
-      <h2>الأقسام</h2>
-      <div class="row"><input id="a-dept" placeholder="اسم القسم"><button id="a-dept-add" type="button">إضافة قسم</button></div>
+      <h2>الأقسام (شجرة)</h2>
+      <p class="hint">ابدأ بقسم رئيسي (مثل الكلية)، ثم أضف تحته أقسامًا فرعية، وتحتها أقسامًا أدق. لا حد لعدد المستويات.</p>
+      <label for="a-dparent">يتبع</label>
+      <select id="a-dparent"></select>
+      <div class="row" style="margin-top:10px"><input id="a-dept" placeholder="اسم القسم الجديد"><button id="a-dept-add" type="button">إضافة</button></div>
       <ul class="plain" id="a-depts"></ul>
     </div>
     <div class="card">
@@ -306,7 +309,7 @@ $('tabs').onclick = function (e) {
 
 /* ============ تحميل البيانات ============ */
 async function loadAll() {
-  var d = await sb.from('departments').select('id,name').order('name');
+  var d = await sb.from('departments').select('id,name,parent_id').order('name');
   departments = d.data || [];
   if (me.role === 'admin') {
     var p = await sb.from('profiles').select('id,full_name,email,role,active,department_id').order('full_name');
@@ -317,12 +320,33 @@ async function loadAll() {
   await resumeLive();
 }
 
+// شجرة الأقسام: ترتيب عمق أولًا مع المسار الكامل لكل قسم
+function deptTree() {
+  var kids = {}, out = [];
+  departments.forEach(function (d) { var k = d.parent_id || ''; (kids[k] = kids[k] || []).push(d); });
+  (function walk(pid, depth, path, guard) {
+    if (guard > 20) return;
+    (kids[pid] || []).slice().sort(function (a, b) { return a.name.localeCompare(b.name, 'ar'); }).forEach(function (d) {
+      var p = path ? path + ' / ' + d.name : d.name;
+      out.push({ id: d.id, name: d.name, parent_id: d.parent_id, depth: depth, path: p });
+      walk(d.id, depth + 1, p, guard + 1);
+    });
+  })('', 0, '', 0);
+  return out;
+}
+function deptPath(id) {
+  if (!id) return '';
+  var t = deptTree().filter(function (x) { return x.id === id; })[0];
+  return t ? t.path : '';
+}
+
 function fillDepts() {
-  ['f-dept', 'a-udept'].forEach(function (id) {
-    var s = $(id), cur = s.value; s.innerHTML = '';
-    var o0 = el('option', '', id === 'a-udept' ? '— بدون قسم —' : '— اختر القسم —'); o0.value = ''; s.appendChild(o0);
-    departments.forEach(function (d) { var o = el('option', '', d.name); o.value = d.id; s.appendChild(o); });
-    s.value = cur || (id === 'f-dept' && me && me.department_id) || '';
+  var tree = deptTree();
+  [['f-dept', '— اختر القسم —'], ['a-udept', '— بدون قسم —'], ['a-dparent', '— قسم رئيسي (بدون أب) —']].forEach(function (cfg) {
+    var s = $(cfg[0]), cur = s.value; s.innerHTML = '';
+    var o0 = el('option', '', cfg[1]); o0.value = ''; s.appendChild(o0);
+    tree.forEach(function (d) { var o = el('option', '', d.path); o.value = d.id; s.appendChild(o); });
+    s.value = cur || (cfg[0] === 'f-dept' && me && me.department_id) || '';
   });
   var l = $('f-lecturer'); l.innerHTML = '';
   profiles.filter(function (x) { return x.active; }).forEach(function (x) {
@@ -333,7 +357,7 @@ function fillDepts() {
 
 async function loadSubjects() {
   var r = await sb.from('subjects')
-    .select('id,name,level,lecturer_id,lecturer_name,archived,department_id,departments(name),subject_students(count)')
+    .select('id,name,level,lecturer_id,lecturer_name,archived,department_id,subject_students(count)')
     .order('created_at', { ascending: false });
   if (r.error) { $('subjects-list').textContent = errText(r.error); return; }
   subjects = r.data || [];
@@ -344,7 +368,7 @@ async function loadSubjects() {
     var h = el('h3', '', s.name); if (s.archived) h.appendChild(el('span', 'tag', 'مؤرشفة'));
     c.appendChild(h);
     var cnt = (s.subject_students && s.subject_students[0] && s.subject_students[0].count) || 0;
-    c.appendChild(el('div', 'meta', [s.level, s.departments && s.departments.name, s.lecturer_name].filter(Boolean).join(' — ') + ' · ' + cnt + ' طالب'));
+    c.appendChild(el('div', 'meta', [s.level, deptPath(s.department_id), s.lecturer_name].filter(Boolean).join(' — ') + ' · ' + cnt + ' طالب'));
     var acts = el('div', 'actions');
     var b1 = el('button', '', 'إضافة طلاب'); b1.onclick = function () { startAddMode(s); }; acts.appendChild(b1);
     var b2 = el('button', '', s.archived ? 'إلغاء الأرشفة' : 'أرشفة'); b2.onclick = async function () {
@@ -690,18 +714,24 @@ $('r-xlsx').onclick = function () {
 /* ============ الإدارة ============ */
 async function loadAdmin() {
   if (me.role !== 'admin') return;
-  var d = await sb.from('departments').select('id,name').order('name'); departments = d.data || [];
+  var d = await sb.from('departments').select('id,name,parent_id').order('name'); departments = d.data || [];
   var p = await sb.from('profiles').select('id,full_name,email,role,active,department_id').order('full_name'); profiles = p.data || [];
   var a = await sb.from('allowed_users').select('email,full_name,role,department_id').order('email');
   fillDepts();
   var ul = $('a-depts'); ul.innerHTML = '';
-  departments.forEach(function (x) {
-    var li = el('li', '', x.name + ' '), b = el('button', 'danger', 'حذف'); b.style.padding = '3px 10px';
+  if (!departments.length) ul.appendChild(el('li', '', 'لا توجد أقسام بعد. أضف أول قسم رئيسي.'));
+  deptTree().forEach(function (x) {
+    var li = el('li', '', (x.depth ? '↳ ' : '') + x.name + ' ');
+    li.style.paddingInlineStart = (x.depth * 22) + 'px';
+    var add = el('button', '', '+ فرعي'); add.style.padding = '3px 10px';
+    add.onclick = function () { $('a-dparent').value = x.id; $('a-dept').focus(); $('a-dept').scrollIntoView({ block: 'center' }); };
+    var b = el('button', 'danger', 'حذف'); b.style.padding = '3px 10px'; b.style.marginInlineStart = '6px';
     b.onclick = async function () {
       var r = await sb.from('departments').delete().eq('id', x.id);
-      if (r.error) msg('a-msg', errText(r.error), 'bad'); else loadAdmin();
+      if (r.error) msg('a-msg', /foreign|violates|23503/i.test(r.error.message + (r.error.code || '')) ? 'لا يمكن حذف قسم له أقسام فرعية. احذف الفرعية أولًا.' : errText(r.error), 'bad');
+      else { msg('a-msg', ''); loadAdmin(); }
     };
-    li.appendChild(b); ul.appendChild(li);
+    li.appendChild(add); li.appendChild(b); ul.appendChild(li);
   });
   var tb = $('a-users'); tb.innerHTML = '';
   var byEmail = {}; profiles.forEach(function (x) { byEmail[x.email] = x; });
@@ -729,8 +759,8 @@ async function loadAdmin() {
 
 $('a-dept-add').onclick = async function () {
   var n = $('a-dept').value.trim(); if (!n) return;
-  var r = await sb.from('departments').insert({ name: n });
-  if (r.error) msg('a-msg', /duplicate/i.test(r.error.message) ? 'القسم موجود بالفعل.' : errText(r.error), 'bad');
+  var r = await sb.from('departments').insert({ name: n, parent_id: $('a-dparent').value || null });
+  if (r.error) msg('a-msg', /duplicate/i.test(r.error.message) ? 'يوجد قسم بنفس الاسم تحت نفس القسم الأب.' : errText(r.error), 'bad');
   else { $('a-dept').value = ''; msg('a-msg', ''); loadAdmin(); }
 };
 $('a-user-add').onclick = async function () {
@@ -745,3 +775,5 @@ init();
 </script>
 </body>
 </html>
+
+
