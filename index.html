@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>تسجيل الحضور</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .head { text-align: center; margin-bottom: 14px; }
+  .head h1 { margin: 0 0 4px; font-size: 1.35rem; }
+  .head p { margin: 0; color: var(--muted); font-size: .92rem; }
+  .now { text-align: center; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 8px; margin-top: 14px; font-size: .92rem; color: var(--muted); }
+  .now b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap narrow">
+  <div class="head">
+    <p>تسجيل الحضور</p>
+    <h1 id="h-subject">&nbsp;</h1>
+    <p id="h-meta"></p>
+  </div>
+
+  <div id="idle" class="card" hidden>
+    <h2>لا توجد محاضرة مفتوحة</h2>
+    <p>افتح الرابط الذي أرسله المحاضر، أو امسح كود QR المعروض في القاعة.</p>
+  </div>
+
+  <div id="form" class="card" hidden>
+    <label for="f-name">الاسم</label>
+    <input id="f-name" autocomplete="name" placeholder="اكتب اسمك">
+    <div id="code-box" hidden>
+      <label for="f-code">كود المحاضرة (المكتوب على السبورة)</label>
+      <input id="f-code" inputmode="numeric" autocomplete="off" placeholder="مثال: 4827">
+    </div>
+    <label for="f-seat">رقم الجلوس</label>
+    <input id="f-seat" inputmode="numeric" autocomplete="off" placeholder="اكتب رقم الجلوس">
+    <div class="now">اليوم والوقت: <b id="now"></b></div>
+    <button id="go" class="primary">سجّل حضوري</button>
+    <p class="hint" id="loc-hint">سيطلب المتصفح إذن الوصول لموقعك للتأكد من وجودك داخل القاعة. وافق على الطلب، وشغّل GPS لو كان مغلقًا.</p>
+  </div>
+
+  <div id="busy" class="card result" hidden>
+    <div class="spinner"></div>
+    <p id="busy-text">جارٍ التحميل…</p>
+  </div>
+
+  <div id="result" class="card result" hidden>
+    <div class="big" id="r-icon"></div>
+    <h2 id="r-title"></h2>
+    <p id="r-text"></p>
+    <p id="r-time"></p>
+    <button id="retry" hidden>حاول مرة أخرى</button>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script>
+var CFG = window.APP_CONFIG || {};
+var _q = new URLSearchParams(location.search);
+var SESSION_ID = /^[A-Za-z0-9_-]{1,64}$/.test(_q.get('s') || '') ? _q.get('s') : '';
+var TOKEN = /^[A-Za-z0-9_-]{1,64}$/.test(_q.get('t') || '') ? _q.get('t') : '';
+var needLocation = true, needCode = false;
+
+function $(id) { return document.getElementById(id); }
+function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+
+var deviceId = lsGet('att_device');
+if (!deviceId) {
+  deviceId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  lsSet('att_device', deviceId);
+}
+
+// نداء دالة في قاعدة البيانات مباشرة (بدون مكتبات)، الطالب لا يحتاج حسابًا
+function rpc(fn, args) {
+  var headers = { 'Content-Type': 'application/json', 'apikey': CFG.SUPABASE_ANON_KEY };
+  if (/^eyJ/.test(CFG.SUPABASE_ANON_KEY || '')) headers['Authorization'] = 'Bearer ' + CFG.SUPABASE_ANON_KEY;
+  return fetch(CFG.SUPABASE_URL + '/rest/v1/rpc/' + fn, { method: 'POST', headers: headers, body: JSON.stringify(args) })
+    .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error((j && j.message) || 'خطأ'); return j; }); });
+}
+
+function show(which) {
+  ['idle', 'form', 'busy', 'result'].forEach(function (k) { $(k).hidden = (k !== which); });
+}
+function showResult(ok, title, text, time, canRetry) {
+  $('result').className = 'card result ' + (ok ? 'ok' : 'bad');
+  $('r-icon').textContent = ok ? '✓' : '✕';
+  $('r-title').textContent = title;
+  $('r-text').textContent = text || '';
+  $('r-time').textContent = time || '';
+  $('retry').hidden = !canRetry;
+  show('result');
+}
+
+function tickClock() {
+  try { $('now').textContent = new Date().toLocaleString('ar-EG', { dateStyle: 'full', timeStyle: 'short' }); }
+  catch (e) { $('now').textContent = new Date().toLocaleString(); }
+}
+setInterval(tickClock, 15000); tickClock();
+
+function getPosition() {
+  return new Promise(function (resolve, reject) {
+    if (!navigator.geolocation) { reject({ code: 0 }); return; }
+    navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 25000, maximumAge: 0 });
+  });
+}
+function geoMessage(err) {
+  if (err && err.code === 1) return 'لم يُسمح بالوصول للموقع. اسمح به من إعدادات المتصفح ثم أعد المحاولة.';
+  if (err && err.code === 3) return 'انتهت مهلة تحديد الموقع. تأكد من تشغيل GPS وحاول مرة أخرى.';
+  return 'تعذّر تحديد موقعك. شغّل GPS وحاول مرة أخرى.';
+}
+
+function submit() {
+  var name = $('f-name').value.trim(), seat = $('f-seat').value.trim(), code = $('f-code').value.trim();
+  if (!name) { $('f-name').focus(); return; }
+  if (needCode && !code) { $('f-code').focus(); return; }
+  if (!seat) { $('f-seat').focus(); return; }
+  lsSet('att_name', name); lsSet('att_seat', seat);
+
+  var args = { p_session: SESSION_ID, p_name: name, p_seat: seat, p_code: code || null, p_token: TOKEN || null,
+               p_lat: null, p_lng: null, p_acc: null, p_device: deviceId };
+  var step;
+  show('busy');
+  if (needLocation) {
+    $('busy-text').textContent = 'جارٍ تحديد موقعك…';
+    step = getPosition().then(function (pos) {
+      args.p_lat = pos.coords.latitude; args.p_lng = pos.coords.longitude; args.p_acc = pos.coords.accuracy;
+    }, function (err) { throw new Error(geoMessage(err)); });
+  } else {
+    step = Promise.resolve();
+  }
+  step.then(function () {
+    $('busy-text').textContent = 'جارٍ تسجيل حضورك…';
+    return rpc('submit_attendance', args);
+  }).then(function (r) {
+    if (r.ok) showResult(true, r.already ? 'مسجَّل مسبقًا' : 'تم تسجيل حضورك', (r.name || name) + ' — ' + (r.subject || ''), r.stamp ? 'وقت التسجيل: ' + r.stamp : '', false);
+    else showResult(false, 'لم يتم التسجيل', r.message, '', true);
+  }).catch(function (e) {
+    showResult(false, 'لم يتم التسجيل', (e && e.message && !/fetch|network/i.test(e.message)) ? e.message : 'تعذّر الاتصال بالخادم. تأكد من الإنترنت وحاول مرة أخرى.', '', true);
+  });
+}
+
+$('go').onclick = submit;
+$('f-seat').addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); });
+$('retry').onclick = function () { show('form'); };
+
+function init() {
+  if (!SESSION_ID) { show('idle'); return; }
+  $('busy-text').textContent = 'جارٍ التحميل…';
+  show('busy');
+  rpc('get_session_info', { p_session: SESSION_ID }).then(function (info) {
+    if (!info || !info.found) { showResult(false, 'تعذّر فتح المحاضرة', (info && info.message) || '', '', false); return; }
+    $('h-subject').textContent = info.subject || '';
+    $('h-meta').textContent = [info.level, info.dept, info.lecturer].filter(Boolean).join(' — ');
+    if (!info.open) { showResult(false, 'التسجيل مغلق', info.message, '', false); return; }
+    needLocation = !!info.requireLocation;
+    needCode = !!info.needCode;
+    $('loc-hint').hidden = !needLocation;
+    $('code-box').hidden = !needCode;
+    if (!needCode && !TOKEN) { showResult(false, 'رابط غير مكتمل', 'امسح كود QR المعروض على الشاشة لفتح صفحة التسجيل.', '', false); return; }
+    $('f-name').value = lsGet('att_name') || '';
+    $('f-seat').value = lsGet('att_seat') || '';
+    show('form');
+  }).catch(function () {
+    showResult(false, 'تعذّر الاتصال', 'تأكد من الإنترنت وحاول مرة أخرى.', '', false);
+  });
+}
+init();
+</script>
+</body>
+</html>

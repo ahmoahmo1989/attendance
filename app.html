@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>نظام الحضور — لوحة المحاضر</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ================= شاشة الدخول ================= -->
+<div id="view-login" hidden>
+  <div class="card" style="max-width:420px;margin:40px auto">
+    <h1 class="title" style="text-align:center">نظام حضور الطلاب</h1>
+    <div id="login-form">
+      <label for="l-email">البريد الإلكتروني</label>
+      <input id="l-email" type="email" autocomplete="username" dir="ltr">
+      <label for="l-pass">كلمة المرور</label>
+      <input id="l-pass" type="password" autocomplete="current-password" dir="ltr">
+      <button id="btn-login" class="primary">دخول</button>
+      <p style="display:flex;gap:8px;margin:10px 0 0">
+        <button id="btn-signup" type="button" style="flex:1">إنشاء حساب</button>
+        <button id="btn-forgot" type="button" style="flex:1">نسيت كلمة المرور</button>
+      </p>
+      <p class="hint">إنشاء الحساب متاح فقط للبريد الذي سجّله مدير النظام. ستصلك رسالة لتأكيد البريد.</p>
+    </div>
+    <div id="recover-form" hidden>
+      <label for="n-pass">كلمة المرور الجديدة</label>
+      <input id="n-pass" type="password" autocomplete="new-password" dir="ltr">
+      <button id="btn-newpass" class="primary">حفظ كلمة المرور</button>
+    </div>
+    <div id="login-msg" class="msg" hidden></div>
+  </div>
+</div>
+
+<!-- ================= التطبيق ================= -->
+<div id="view-app" hidden>
+  <div class="topbar">
+    <h1 class="title" id="who">…</h1>
+    <button id="btn-logout">خروج</button>
+  </div>
+  <div class="tabs" id="tabs">
+    <button data-tab="subjects" class="on">المواد وكشوف الطلاب</button>
+    <button data-tab="session">جلسة حضور</button>
+    <button data-tab="reports">التقارير</button>
+    <button data-tab="admin" id="tab-admin-btn" hidden>الإدارة</button>
+  </div>
+
+  <!-- المواد -->
+  <section id="tab-subjects">
+    <div class="card" id="roster-card">
+      <h2 id="roster-title">إضافة مادة وكشف طلاب</h2>
+      <div id="subject-fields">
+        <div class="row">
+          <div><label for="f-dept">القسم</label><select id="f-dept"></select></div>
+          <div><label for="f-level">الفرقة</label><input id="f-level" list="levels" placeholder="مثال: الفرقة الرابعة"></div>
+        </div>
+        <datalist id="levels"><option value="الفرقة الأولى"><option value="الفرقة الثانية"><option value="الفرقة الثالثة"><option value="الفرقة الرابعة"><option value="الدراسات العليا"></datalist>
+        <label for="f-subject">المادة</label>
+        <input id="f-subject" placeholder="اسم المادة">
+        <div id="f-lecturer-box" hidden>
+          <label for="f-lecturer">المحاضر</label><select id="f-lecturer"></select>
+        </div>
+      </div>
+      <label for="f-file">كشف الطلاب (Excel أو CSV: رقم الجلوس والاسم)</label>
+      <input id="f-file" type="file" accept=".xlsx,.xls,.csv">
+      <label for="f-paste">أو الصق الأسماء (رقم الجلوس ثم الاسم في كل سطر)</label>
+      <textarea id="f-paste" placeholder="1001	أحمد علي&#10;1002	سارة محمود"></textarea>
+      <div id="roster-preview" hidden>
+        <p class="hint" id="roster-count"></p>
+        <div class="scroll"><table><thead><tr><th>رقم الجلوس</th><th>الاسم</th></tr></thead><tbody id="roster-rows"></tbody></table></div>
+      </div>
+      <button id="roster-save" class="primary">حفظ المادة والكشف</button>
+      <p><button id="roster-cancel" type="button" hidden>إلغاء</button></p>
+      <div id="roster-msg" class="msg" hidden></div>
+    </div>
+    <div class="card">
+      <h2>موادي</h2>
+      <div id="subjects-list"><p class="hint">جارٍ التحميل…</p></div>
+    </div>
+  </section>
+
+  <!-- الجلسة -->
+  <section id="tab-session" hidden>
+    <div id="sess-form">
+      <div class="card">
+        <h2>بدء جلسة حضور</h2>
+        <label for="s-subject">المادة</label>
+        <select id="s-subject"></select>
+        <label for="s-minutes">مدة فتح التسجيل (دقيقة)</label>
+        <input id="s-minutes" type="number" min="1" max="180" value="15">
+        <label for="s-mode">طريقة التسجيل</label>
+        <select id="s-mode">
+          <option value="code">رابط + كود قصير تكتبه على السبورة (موصى به)</option>
+          <option value="qr">QR متجدد كل 30 ثانية (يحتاج شاشة عرض)</option>
+        </select>
+        <label class="check"><input id="s-useloc" type="checkbox" checked> التحقق من وجود الطالب داخل المدرج (بالموقع)</label>
+        <div id="loc-box">
+          <div class="row">
+            <div><label for="s-lat">خط العرض</label><input id="s-lat" inputmode="decimal" placeholder="30.0444"></div>
+            <div><label for="s-lng">خط الطول</label><input id="s-lng" inputmode="decimal" placeholder="31.2357"></div>
+          </div>
+          <label for="s-radius">نطاق القاعة (متر)</label>
+          <input id="s-radius" type="number" min="10" max="1000" value="80">
+          <p style="margin:10px 0 0"><button id="useloc" type="button">📍 استخدم موقعي الحالي (وأنا داخل المدرج)</button></p>
+          <p class="hint">لو الزر لم يعمل: افتح خرائط Google، اضغط مطولًا على مكان المدرج، وانسخ الإحداثيات. يُحفظ آخر موقع تلقائيًا.</p>
+          <div id="loc-msg" class="msg" hidden></div>
+        </div>
+        <button id="start" class="primary">ابدأ الجلسة</button>
+        <div id="sess-msg" class="msg" hidden></div>
+      </div>
+      <div class="card">
+        <h2>آخر الجلسات</h2>
+        <div class="scroll"><table><thead><tr><th>المادة</th><th>التاريخ</th><th>الطريقة</th><th>الحاضرون</th><th>الحالة</th></tr></thead><tbody id="recent"></tbody></table></div>
+      </div>
+    </div>
+
+    <div id="sess-live" hidden>
+      <div class="card">
+        <h2 id="live-title">الجلسة الجارية</h2>
+        <div class="stats">
+          <div class="stat"><b id="count">0</b><span>حاضر</span></div>
+          <div class="stat"><b id="left">--:--</b><span>متبقٍ لإغلاق التسجيل</span></div>
+        </div>
+        <div id="code-card" hidden style="text-align:center">
+          <p class="hint" style="margin:0">اكتب هذا الكود على السبورة وأرسل رابط التسجيل للطلاب</p>
+          <div id="big-code" class="bigcode"></div>
+          <p><button id="copy-link" type="button">نسخ رابط الطلاب</button> <button id="new-code" type="button">كود جديد</button></p>
+        </div>
+        <div class="qrcard" id="qr-wrap" hidden><div id="qr"></div></div>
+        <p class="hint" id="qr-hint" style="text-align:center" hidden>اعرض الشاشة على الطلاب. الكود يتجدد تلقائيًا كل 30 ثانية.</p>
+        <p class="hint" id="qr-link" style="text-align:center;word-break:break-all"></p>
+        <div id="live-msg" class="msg" hidden></div>
+        <div id="live-ended" class="msg bad" hidden>انتهت الجلسة. لا يمكن التسجيل الآن.</div>
+        <p style="text-align:center"><button id="end" class="danger">إنهاء الجلسة الآن</button>
+          <button id="back" hidden>رجوع لبدء جلسة جديدة</button></p>
+      </div>
+      <div class="card">
+        <h2>آخر من سجّل</h2>
+        <ul class="plain" id="recent-att"></ul>
+        <label for="m-seat">تسجيل يدوي (طالب تعطّل موبايله): رقم الجلوس</label>
+        <div class="row"><input id="m-seat" inputmode="numeric" placeholder="رقم الجلوس"><button id="m-go" type="button">سجّله حاضرًا</button></div>
+        <div id="m-msg" class="msg" hidden></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- التقارير -->
+  <section id="tab-reports" hidden>
+    <div class="card">
+      <h2>تقرير حضور مادة</h2>
+      <label for="r-subject">المادة</label>
+      <select id="r-subject"></select>
+      <p><button id="r-go" class="primary">عرض التقرير</button></p>
+      <div id="rep-msg" class="msg" hidden></div>
+      <div id="rep-box" hidden>
+        <div class="stats">
+          <div class="stat"><b id="rep-students">0</b><span>طالب</span></div>
+          <div class="stat"><b id="rep-sessions">0</b><span>محاضرة</span></div>
+          <div class="stat"><b id="rep-avg">0%</b><span>متوسط الحضور</span></div>
+        </div>
+        <p><button id="r-xlsx" type="button">⬇ تحميل Excel</button></p>
+        <div class="scroll"><table><thead><tr><th>رقم الجلوس</th><th>الاسم</th><th>الحضور</th><th>الغياب</th><th>النسبة</th></tr></thead><tbody id="rep-rows"></tbody></table></div>
+        <p class="hint">الصفوف الحمراء: نسبة الحضور أقل من 75%.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- الإدارة -->
+  <section id="tab-admin" hidden>
+    <div class="card">
+      <h2>الأقسام</h2>
+      <div class="row"><input id="a-dept" placeholder="اسم القسم"><button id="a-dept-add" type="button">إضافة قسم</button></div>
+      <ul class="plain" id="a-depts"></ul>
+    </div>
+    <div class="card">
+      <h2>المحاضرون والمستخدمون</h2>
+      <p class="hint">أضف بريد المحاضر هنا أولًا، ثم يدخل صفحة الدخول ويضغط «إنشاء حساب» بنفس البريد.</p>
+      <div class="row">
+        <div><label for="a-email">البريد الإلكتروني</label><input id="a-email" type="email" dir="ltr"></div>
+        <div><label for="a-name">الاسم</label><input id="a-name" placeholder="د/ ..."></div>
+      </div>
+      <div class="row">
+        <div><label for="a-role">الصلاحية</label><select id="a-role"><option value="lecturer">محاضر</option><option value="admin">مدير النظام</option></select></div>
+        <div><label for="a-udept">القسم</label><select id="a-udept"></select></div>
+      </div>
+      <button id="a-user-add" class="primary" type="button">إضافة مستخدم</button>
+      <div id="a-msg" class="msg" hidden></div>
+      <h3>المسجَّلون</h3>
+      <div class="scroll"><table><thead><tr><th>الاسم</th><th>البريد</th><th>الصلاحية</th><th>الحالة</th><th></th></tr></thead><tbody id="a-users"></tbody></table></div>
+    </div>
+  </section>
+</div>
+</div>
+
+<script src="config.js"></script>
+<script>
+'use strict';
+var CFG = window.APP_CONFIG || {};
+function $(id) { return document.getElementById(id); }
+function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+function msg(id, text, kind) { var m = $(id); m.textContent = text || ''; m.className = 'msg ' + (kind || ''); m.hidden = !text; }
+function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function pad(n) { return (n < 10 ? '0' : '') + n; }
+function errText(e) { return String((e && e.message) || e || 'حدث خطأ'); }
+function show(id, on) { $(id).hidden = !on; }
+
+var sb = null, me = null;           // العميل والملف الشخصي
+var departments = [], subjects = [], profiles = [];
+var liveId = '', livePublic = '', liveTimer = null, lastUrl = '', endsAt = 0, endArmed = false, currentLink = '';
+
+/* ============ الاتصال والدخول ============ */
+function configOk() {
+  return CFG.SUPABASE_URL && CFG.SUPABASE_ANON_KEY && !/PUT-YOUR/.test(CFG.SUPABASE_URL + CFG.SUPABASE_ANON_KEY);
+}
+
+function showLogin(text, kind) {
+  show('view-app', false); show('view-login', true);
+  msg('login-msg', text || '', kind);
+}
+
+async function afterSignIn() {
+  var r = await sb.rpc('claim_profile');
+  if (r.error) { showLogin(errText(r.error), 'bad'); return; }
+  var p = r.data;
+  if (!p || !p.ok) {
+    await sb.auth.signOut();
+    showLogin((p && p.message) || 'لا يمكن الدخول.', 'bad');
+    return;
+  }
+  me = { role: p.role, name: p.name, department_id: p.department_id, id: (await sb.auth.getUser()).data.user.id };
+  $('who').textContent = (me.name || 'مرحبًا') + (me.role === 'admin' ? ' — مدير النظام' : '');
+  $('tab-admin-btn').hidden = me.role !== 'admin';
+  $('f-lecturer-box').hidden = me.role !== 'admin';
+  show('view-login', false); show('view-app', true);
+  await loadAll();
+}
+
+async function init() {
+  if (!configOk()) {
+    showLogin('لم يتم ضبط الاتصال بقاعدة البيانات. عدّل ملف config.js بقيمة SUPABASE_URL و SUPABASE_ANON_KEY.', 'bad');
+    $('login-form').hidden = true;
+    return;
+  }
+  sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
+  sb.auth.onAuthStateChange(function (ev) {
+    if (ev === 'PASSWORD_RECOVERY') { show('view-app', false); show('view-login', true); $('login-form').hidden = true; $('recover-form').hidden = false; }
+  });
+  var s = await sb.auth.getSession();
+  if (s.data && s.data.session && !location.hash.includes('type=recovery')) await afterSignIn();
+  else if (!location.hash.includes('type=recovery')) showLogin('');
+}
+
+$('btn-login').onclick = async function () {
+  var email = $('l-email').value.trim(), pass = $('l-pass').value;
+  if (!email || !pass) { msg('login-msg', 'اكتب البريد وكلمة المرور.', 'bad'); return; }
+  msg('login-msg', 'جارٍ الدخول…');
+  var r = await sb.auth.signInWithPassword({ email: email, password: pass });
+  if (r.error) { msg('login-msg', /Invalid login/i.test(r.error.message) ? 'البريد أو كلمة المرور غير صحيحة.' : /not confirmed/i.test(r.error.message) ? 'أكّد بريدك أولًا من الرسالة التي وصلتك.' : r.error.message, 'bad'); return; }
+  await afterSignIn();
+};
+$('l-pass').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('btn-login').click(); });
+
+$('btn-signup').onclick = async function () {
+  var email = $('l-email').value.trim(), pass = $('l-pass').value;
+  if (!email || pass.length < 8) { msg('login-msg', 'اكتب البريد وكلمة مرور من 8 أحرف على الأقل.', 'bad'); return; }
+  msg('login-msg', 'جارٍ إنشاء الحساب…');
+  var r = await sb.auth.signUp({ email: email, password: pass, options: { emailRedirectTo: location.href.split('#')[0] } });
+  if (r.error) { msg('login-msg', r.error.message, 'bad'); return; }
+  msg('login-msg', 'تم. افتح بريدك واضغط رابط التأكيد، ثم ارجع هنا وسجّل الدخول.', 'ok');
+};
+
+$('btn-forgot').onclick = async function () {
+  var email = $('l-email').value.trim();
+  if (!email) { msg('login-msg', 'اكتب بريدك أولًا.', 'bad'); return; }
+  var r = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.href.split('#')[0] });
+  msg('login-msg', r.error ? r.error.message : 'أرسلنا رابط تغيير كلمة المرور إلى بريدك.', r.error ? 'bad' : 'ok');
+};
+
+$('btn-newpass').onclick = async function () {
+  var p = $('n-pass').value;
+  if (p.length < 8) { msg('login-msg', 'كلمة المرور 8 أحرف على الأقل.', 'bad'); return; }
+  var r = await sb.auth.updateUser({ password: p });
+  if (r.error) { msg('login-msg', r.error.message, 'bad'); return; }
+  location.hash = ''; $('recover-form').hidden = true; $('login-form').hidden = false;
+  await afterSignIn();
+};
+
+$('btn-logout').onclick = async function () {
+  stopLive(); await sb.auth.signOut(); me = null; showLogin('');
+};
+
+/* ============ التبويبات ============ */
+$('tabs').onclick = function (e) {
+  var b = e.target.closest('button[data-tab]'); if (!b) return;
+  [].forEach.call($('tabs').children, function (x) { x.classList.toggle('on', x === b); });
+  ['subjects', 'session', 'reports', 'admin'].forEach(function (t) { $('tab-' + t).hidden = (t !== b.dataset.tab); });
+  if (b.dataset.tab === 'session') refreshRecent();
+  if (b.dataset.tab === 'admin') loadAdmin();
+};
+
+/* ============ تحميل البيانات ============ */
+async function loadAll() {
+  var d = await sb.from('departments').select('id,name').order('name');
+  departments = d.data || [];
+  if (me.role === 'admin') {
+    var p = await sb.from('profiles').select('id,full_name,email,role,active,department_id').order('full_name');
+    profiles = p.data || [];
+  }
+  fillDepts();
+  await loadSubjects();
+  await resumeLive();
+}
+
+function fillDepts() {
+  ['f-dept', 'a-udept'].forEach(function (id) {
+    var s = $(id), cur = s.value; s.innerHTML = '';
+    var o0 = el('option', '', id === 'a-udept' ? '— بدون قسم —' : '— اختر القسم —'); o0.value = ''; s.appendChild(o0);
+    departments.forEach(function (d) { var o = el('option', '', d.name); o.value = d.id; s.appendChild(o); });
+    s.value = cur || (id === 'f-dept' && me && me.department_id) || '';
+  });
+  var l = $('f-lecturer'); l.innerHTML = '';
+  profiles.filter(function (x) { return x.active; }).forEach(function (x) {
+    var o = el('option', '', x.full_name || x.email); o.value = x.id; l.appendChild(o);
+  });
+  if (me) l.value = me.id;
+}
+
+async function loadSubjects() {
+  var r = await sb.from('subjects')
+    .select('id,name,level,lecturer_id,lecturer_name,archived,department_id,departments(name),subject_students(count)')
+    .order('created_at', { ascending: false });
+  if (r.error) { $('subjects-list').textContent = errText(r.error); return; }
+  subjects = r.data || [];
+  var box = $('subjects-list'); box.innerHTML = '';
+  if (!subjects.length) box.appendChild(el('p', 'hint', 'لا توجد مواد بعد. أضف أول مادة من النموذج بالأعلى.'));
+  subjects.forEach(function (s) {
+    var c = el('div', 'subject-item');
+    var h = el('h3', '', s.name); if (s.archived) h.appendChild(el('span', 'tag', 'مؤرشفة'));
+    c.appendChild(h);
+    var cnt = (s.subject_students && s.subject_students[0] && s.subject_students[0].count) || 0;
+    c.appendChild(el('div', 'meta', [s.level, s.departments && s.departments.name, s.lecturer_name].filter(Boolean).join(' — ') + ' · ' + cnt + ' طالب'));
+    var acts = el('div', 'actions');
+    var b1 = el('button', '', 'إضافة طلاب'); b1.onclick = function () { startAddMode(s); }; acts.appendChild(b1);
+    var b2 = el('button', '', s.archived ? 'إلغاء الأرشفة' : 'أرشفة'); b2.onclick = async function () {
+      var u = await sb.from('subjects').update({ archived: !s.archived }).eq('id', s.id);
+      if (u.error) msg('roster-msg', errText(u.error), 'bad'); else loadSubjects();
+    }; acts.appendChild(b2);
+    if (me.role === 'admin') {
+      var b3 = el('button', 'danger', 'حذف المادة'), armed = false;
+      b3.onclick = async function () {
+        if (!armed) { armed = true; b3.textContent = 'اضغط للتأكيد (يحذف كل حضورها)'; setTimeout(function () { armed = false; b3.textContent = 'حذف المادة'; }, 5000); return; }
+        var d2 = await sb.from('subjects').delete().eq('id', s.id);
+        if (d2.error) msg('roster-msg', errText(d2.error), 'bad'); else loadSubjects();
+      };
+      acts.appendChild(b3);
+    }
+    c.appendChild(acts);
+    box.appendChild(c);
+  });
+  ['s-subject', 'r-subject'].forEach(function (id) {
+    var sel = $(id), cur = sel.value; sel.innerHTML = '';
+    subjects.filter(function (s) { return id === 'r-subject' || !s.archived; }).forEach(function (s) {
+      var o = el('option', '', s.name + ' — ' + s.level + (me.role === 'admin' ? ' (' + s.lecturer_name + ')' : '')); o.value = s.id; sel.appendChild(o);
+    });
+    if (cur) sel.value = cur;
+  });
+  if (!$('s-lat').value) $('s-lat').value = lsGet('att_lat') || '';
+  if (!$('s-lng').value) $('s-lng').value = lsGet('att_lng') || '';
+  $('s-radius').value = lsGet('att_radius') || $('s-radius').value;
+  $('s-minutes').value = lsGet('att_minutes') || $('s-minutes').value;
+}
+
+/* ============ كشف الطلاب: قراءة الملف ============ */
+var students = [], addToId = '';
+var NUM = /^[0-9٠-٩۰-۹]+$/;
+function cellStr(v) { return String(v == null ? '' : v).replace(/\s+/g, ' ').trim(); }
+function isNum(v) { return NUM.test(cellStr(v).replace(/\s+/g, '')); }
+function normSeat(s) {
+  return String(s).replace(/[٠-٩]/g, function (d) { return String(d.charCodeAt(0) - 0x0660); })
+    .replace(/[۰-۹]/g, function (d) { return String(d.charCodeAt(0) - 0x06F0); }).replace(/\s+/g, '').toUpperCase();
+}
+
+function rowsToStudents(rows) {
+  var cand = [];
+  rows.forEach(function (r) {
+    var cells = (r || []).map(cellStr).filter(function (x) { return x !== ''; });
+    if (cells.length < 2) return;
+    var a = cells[0], b = cells[1];
+    if (!isNum(a) && isNum(b)) { var t = a; a = b; b = t; }
+    cand.push({ seat: a, name: b });
+  });
+  var numeric = cand.filter(function (c) { return isNum(c.seat); }).length, dropped = 0;
+  if (numeric >= cand.length / 2) {
+    var kept = cand.filter(function (c) { return isNum(c.seat); });
+    dropped = cand.length - kept.length; cand = kept;
+  }
+  return { list: cand, dropped: dropped };
+}
+
+function setStudents(res, source) {
+  var seen = {}, dup = 0, uniq = [];
+  res.list.forEach(function (s) { var k = normSeat(s.seat); if (seen[k]) dup++; else { seen[k] = true; uniq.push(s); } });
+  students = uniq;
+  var tb = $('roster-rows'); tb.innerHTML = '';
+  students.slice(0, 5).forEach(function (s) { var tr = el('tr'); tr.appendChild(el('td', '', s.seat)); tr.appendChild(el('td', '', s.name)); tb.appendChild(tr); });
+  var txt = 'تمت قراءة ' + students.length + ' طالب' + (source ? ' من ' + source : '') + '.';
+  if (res.dropped) txt += ' تم تجاهل ' + res.dropped + ' صف غير صالح (مثل صف العناوين).';
+  if (dup) txt += ' يوجد ' + dup + ' رقم جلوس مكرر وسيُحفظ مرة واحدة فقط.';
+  $('roster-count').textContent = txt;
+  $('roster-preview').hidden = !students.length;
+  if (!students.length) msg('roster-msg', 'لم أجد أي طالب في الملف. تأكد أن فيه عمودين: رقم الجلوس والاسم.', 'bad'); else msg('roster-msg', '');
+}
+
+$('f-file').onchange = function () {
+  var f = this.files && this.files[0]; if (!f) return;
+  $('f-paste').value = '';
+  var isCsv = /\.csv$/i.test(f.name), reader = new FileReader();
+  reader.onerror = function () { msg('roster-msg', 'تعذّرت قراءة الملف.', 'bad'); };
+  reader.onload = function () {
+    try {
+      if (typeof XLSX === 'undefined') { msg('roster-msg', 'تعذّر تحميل مكتبة قراءة Excel. الصق الأسماء في الخانة بالأسفل بدلًا من ذلك.', 'bad'); return; }
+      var wb = XLSX.read(reader.result, { type: isCsv ? 'string' : 'array' });
+      var rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: false, defval: '' });
+      setStudents(rowsToStudents(rows), f.name);
+    } catch (e) { msg('roster-msg', 'الملف غير مفهوم: ' + e.message, 'bad'); }
+  };
+  if (isCsv) reader.readAsText(f, 'UTF-8'); else reader.readAsArrayBuffer(f);
+};
+$('f-paste').oninput = function () {
+  var rows = this.value.split(/\r?\n/).map(function (l) { return l.split(/\t|,|;|،/); });
+  if (this.value.trim()) { $('f-file').value = ''; setStudents(rowsToStudents(rows), 'النص الملصق'); }
+  else { students = []; $('roster-preview').hidden = true; }
+};
+
+function resetRosterForm() {
+  addToId = ''; students = [];
+  $('f-file').value = ''; $('f-paste').value = ''; $('roster-preview').hidden = true; msg('roster-msg', '');
+  $('subject-fields').hidden = false;
+  $('roster-title').textContent = 'إضافة مادة وكشف طلاب';
+  $('roster-save').textContent = 'حفظ المادة والكشف';
+  $('roster-cancel').hidden = true;
+  ['f-subject', 'f-level'].forEach(function (i) { $(i).value = ''; });
+}
+function startAddMode(s) {
+  resetRosterForm(); addToId = s.id;
+  $('subject-fields').hidden = true;
+  $('roster-title').textContent = 'إضافة طلاب إلى: ' + s.name + ' — ' + s.level;
+  $('roster-save').textContent = 'إضافة الطلاب للكشف';
+  $('roster-cancel').hidden = false;
+  $('roster-card').scrollIntoView({ behavior: 'smooth' });
+}
+$('roster-cancel').onclick = resetRosterForm;
+
+async function countStudents(subjectId) {
+  var r = await sb.from('subject_students').select('seat', { count: 'exact', head: true }).eq('subject_id', subjectId);
+  if (r.error) throw r.error;
+  return r.count || 0;
+}
+async function saveStudents(subjectId, list) {
+  var before = await countStudents(subjectId);
+  var rows = list.map(function (s) { return { subject_id: subjectId, seat: s.seat, name: s.name }; });
+  for (var i = 0; i < rows.length; i += 500) {
+    var r = await sb.from('subject_students').upsert(rows.slice(i, i + 500), { onConflict: 'subject_id,seat', ignoreDuplicates: true });
+    if (r.error) throw r.error;
+  }
+  var after = await countStudents(subjectId);
+  return { added: after - before, total: after, duplicates: rows.length - (after - before) };
+}
+
+$('roster-save').onclick = async function () {
+  var btn = $('roster-save');
+  if (!students.length) { msg('roster-msg', 'حمّل ملف الكشف أو الصق الأسماء أولًا.', 'bad'); return; }
+  btn.disabled = true; msg('roster-msg', 'جارٍ الحفظ…');
+  try {
+    var text;
+    if (addToId) {
+      var r = await saveStudents(addToId, students);
+      text = 'تمت إضافة ' + r.added + ' طالب (الإجمالي ' + r.total + ')' + (r.duplicates ? ' — ' + r.duplicates + ' موجود مسبقًا وتم تجاهله' : '') + '.';
+    } else {
+      var name = $('f-subject').value.trim(), level = $('f-level').value.trim();
+      if (!name || !level) throw new Error('اكتب اسم المادة والفرقة.');
+      var lecturer = me.role === 'admin' ? $('f-lecturer').value : me.id;
+      var ins = await sb.from('subjects').insert({ name: name, level: level, department_id: $('f-dept').value || null, lecturer_id: lecturer }).select('id').single();
+      if (ins.error) throw ins.error;
+      var r2 = await saveStudents(ins.data.id, students);
+      text = 'تم إنشاء المادة وفيها ' + r2.total + ' طالب' + (r2.duplicates ? ' (' + r2.duplicates + ' رقم جلوس مكرر تم تجاهله)' : '') + '.';
+    }
+    resetRosterForm(); msg('roster-msg', text, 'ok'); await loadSubjects();
+  } catch (e) { msg('roster-msg', errText(e), 'bad'); }
+  btn.disabled = false;
+};
+
+/* ============ بدء جلسة ============ */
+$('s-useloc').onchange = function () { $('loc-box').hidden = !this.checked; };
+
+$('useloc').onclick = function () {
+  if (!navigator.geolocation) { msg('loc-msg', 'المتصفح لا يدعم تحديد الموقع. أدخل الإحداثيات يدويًا.', 'bad'); return; }
+  msg('loc-msg', 'جارٍ تحديد موقعك…');
+  navigator.geolocation.getCurrentPosition(function (pos) {
+    $('s-lat').value = pos.coords.latitude.toFixed(6); $('s-lng').value = pos.coords.longitude.toFixed(6);
+    msg('loc-msg', 'تم تحديد الموقع (دقة حوالي ' + Math.round(pos.coords.accuracy) + ' م).', 'ok');
+  }, function (err) {
+    msg('loc-msg', err.code === 1 ? 'تم رفض إذن الموقع. اسمح به من إعدادات المتصفح أو أدخل الإحداثيات يدويًا.' : err.code === 3 ? 'انتهت مهلة تحديد الموقع. حاول مرة أخرى أو أدخل الإحداثيات يدويًا.' : 'تعذّر تحديد الموقع. أدخل الإحداثيات يدويًا.', 'bad');
+  }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
+};
+
+$('start').onclick = async function () {
+  var useLoc = $('s-useloc').checked;
+  var lat = parseFloat($('s-lat').value.trim().replace(',', '.')), lng = parseFloat($('s-lng').value.trim().replace(',', '.'));
+  var radius = useLoc ? parseInt($('s-radius').value, 10) : 0;
+  if (!$('s-subject').value) { msg('sess-msg', 'اختر المادة.', 'bad'); return; }
+  msg('sess-msg', 'جارٍ إنشاء الجلسة…'); $('start').disabled = true;
+  var r = await sb.rpc('start_session', {
+    p_subject: $('s-subject').value, p_minutes: parseInt($('s-minutes').value, 10), p_mode: $('s-mode').value,
+    p_lat: useLoc && isFinite(lat) ? lat : null, p_lng: useLoc && isFinite(lng) ? lng : null, p_radius: radius
+  });
+  $('start').disabled = false;
+  if (r.error) { msg('sess-msg', errText(r.error), 'bad'); return; }
+  if (useLoc) { lsSet('att_lat', $('s-lat').value); lsSet('att_lng', $('s-lng').value); lsSet('att_radius', $('s-radius').value); }
+  lsSet('att_minutes', $('s-minutes').value);
+  msg('sess-msg', '');
+  await startLive(r.data.id);
+};
+
+async function refreshRecent() {
+  var r = await sb.from('sessions').select('id,started_at,status,mode,ends_at,subjects(name),attendance(count)').order('started_at', { ascending: false }).limit(15);
+  var tb = $('recent'); tb.innerHTML = '';
+  var list = r.data || [];
+  if (!list.length) { var tr0 = el('tr'); var td0 = el('td', '', 'لا توجد جلسات بعد.'); td0.colSpan = 5; tr0.appendChild(td0); tb.appendChild(tr0); }
+  list.forEach(function (s) {
+    var tr = el('tr'), cnt = (s.attendance && s.attendance[0] && s.attendance[0].count) || 0;
+    var live = s.status === 'active' && new Date(s.ends_at) > new Date();
+    [s.subjects && s.subjects.name, new Date(s.started_at).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' }),
+      s.mode === 'code' ? 'كود' : 'QR', String(cnt), live ? 'نشطة' : 'منتهية'].forEach(function (v) { tr.appendChild(el('td', '', v || '')); });
+    tb.appendChild(tr);
+  });
+}
+
+async function resumeLive() {
+  var r = await sb.from('sessions').select('id').eq('status', 'active').eq('created_by', me.id).gt('ends_at', new Date().toISOString()).limit(1);
+  if (r.data && r.data.length) await startLive(r.data[0].id);
+}
+
+/* ============ الجلسة الجارية ============ */
+function stopLive() { clearInterval(liveTimer); liveTimer = null; }
+async function startLive(id) {
+  liveId = id; lastUrl = ''; endsAt = 0; endArmed = false; currentLink = '';
+  show('sess-form', false); show('sess-live', true);
+  show('live-ended', false); show('end', true); show('back', false);
+  msg('live-msg', ''); msg('m-msg', '');
+  $('code-card').hidden = true; $('qr-wrap').hidden = true; $('qr-hint').hidden = true; $('qr-link').textContent = '';
+  var tabBtn = document.querySelector('[data-tab="session"]'); if (tabBtn) tabBtn.click();
+  await tick();
+  stopLive(); liveTimer = setInterval(tick, 4000);
+}
+
+function studentBase() {
+  return CFG.STUDENT_URL || new URL('index.html', location.href.split('#')[0].split('?')[0]).href;
+}
+
+function renderQR(url) {
+  var box = $('qr'); box.innerHTML = '';
+  if (typeof QRCode === 'undefined') { msg('live-msg', 'تعذّر تحميل مكتبة الـ QR. الرابط للطلاب: ' + url, 'bad'); return; }
+  var size = Math.min(300, Math.max(200, window.innerWidth - 90));
+  new QRCode(box, { text: url, width: size, height: size, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+}
+function showLink(url) {
+  var ql = $('qr-link'); ql.textContent = '';
+  var a = el('a', '', 'فتح رابط الطلاب'); a.href = url; a.target = '_blank'; a.rel = 'noopener';
+  ql.appendChild(a); ql.appendChild(document.createElement('br')); ql.appendChild(document.createTextNode(url));
+}
+
+async function tick() {
+  if (!liveId) return;
+  var r = await sb.rpc('session_live', { p_session: liveId });
+  if (r.error) { msg('live-msg', errText(r.error), 'bad'); return; }
+  var d = r.data;
+  $('live-title').textContent = 'الجلسة الجارية — ' + d.subject;
+  $('count').textContent = d.count;
+  endsAt = Date.now() + d.remainingSec * 1000;
+  var ul = $('recent-att'); ul.innerHTML = '';
+  if (!d.recent.length) ul.appendChild(el('li', '', 'لا أحد بعد.'));
+  d.recent.forEach(function (n) { ul.appendChild(el('li', '', n)); });
+  if (d.status === 'active') {
+    var isCode = d.mode === 'code';
+    var url = studentBase() + '?s=' + d.public_id + (isCode ? '' : '&t=' + d.qrToken);
+    currentLink = url;
+    $('code-card').hidden = !isCode; $('qr-wrap').hidden = isCode; $('qr-hint').hidden = isCode;
+    if (isCode) $('big-code').textContent = d.code;
+    if (url !== lastUrl) { lastUrl = url; if (!isCode) renderQR(url); showLink(url); }
+    msg('live-msg', '');
+  } else {
+    stopLive(); lastUrl = '';
+    $('qr').innerHTML = ''; $('code-card').hidden = true; $('qr-wrap').hidden = true; $('qr-hint').hidden = true;
+    show('live-ended', true); show('end', false); show('back', true);
+    $('left').textContent = '00:00';
+  }
+}
+
+setInterval(function () {
+  if (!liveId || !endsAt || !liveTimer) return;
+  var s = Math.max(0, Math.round((endsAt - Date.now()) / 1000));
+  $('left').textContent = pad(Math.floor(s / 60)) + ':' + pad(s % 60);
+}, 1000);
+
+$('copy-link').onclick = function () {
+  var done = function () { msg('live-msg', 'تم نسخ الرابط.', 'ok'); };
+  try { navigator.clipboard.writeText(currentLink).then(done, function () { msg('live-msg', currentLink, 'ok'); }); }
+  catch (e) { msg('live-msg', currentLink, 'ok'); }
+};
+$('new-code').onclick = async function () {
+  var r = await sb.rpc('new_code', { p_session: liveId });
+  if (r.error) msg('live-msg', errText(r.error), 'bad'); else tick();
+};
+$('end').onclick = async function () {
+  if (!liveId) return;
+  if (!endArmed) {
+    endArmed = true; $('end').textContent = 'اضغط مرة أخرى للتأكيد';
+    setTimeout(function () { endArmed = false; $('end').textContent = 'إنهاء الجلسة الآن'; }, 5000);
+    return;
+  }
+  endArmed = false; $('end').textContent = 'إنهاء الجلسة الآن';
+  var r = await sb.rpc('end_session', { p_session: liveId });
+  if (r.error) msg('live-msg', errText(r.error), 'bad'); else { await tick(); refreshRecent(); }
+};
+$('back').onclick = function () { liveId = ''; show('sess-live', false); show('sess-form', true); refreshRecent(); };
+
+$('m-go').onclick = async function () {
+  var seat = $('m-seat').value.trim();
+  if (!seat) { msg('m-msg', 'اكتب رقم الجلوس.', 'bad'); return; }
+  var r = await sb.rpc('manual_mark', { p_session: liveId, p_seat: seat });
+  if (r.error) { msg('m-msg', errText(r.error), 'bad'); return; }
+  msg('m-msg', r.data.message, 'ok'); $('m-seat').value = ''; tick();
+};
+
+/* ============ التقارير ============ */
+var matrix = null, matrixSubject = null;
+$('r-go').onclick = async function () {
+  var id = $('r-subject').value;
+  if (!id) { msg('rep-msg', 'اختر المادة.', 'bad'); return; }
+  msg('rep-msg', 'جارٍ تحميل التقرير…'); show('rep-box', false);
+  var r = await sb.rpc('subject_matrix', { p_subject: id });
+  if (r.error) { msg('rep-msg', errText(r.error), 'bad'); return; }
+  msg('rep-msg', '');
+  matrix = r.data; matrixSubject = subjects.filter(function (s) { return s.id === id; })[0];
+  var total = matrix.sessions.length, sumPct = 0;
+  var tb = $('rep-rows'); tb.innerHTML = '';
+  matrix.students.forEach(function (s) {
+    s.present = s.marks.reduce(function (a, b) { return a + b; }, 0);
+    s.pct = total ? Math.round(s.present * 1000 / total) / 10 : 0;
+    sumPct += s.pct;
+    var tr = el('tr', s.pct < 75 && total ? 'low' : '');
+    [s.seat, s.name, String(s.present), String(total - s.present), total ? s.pct + '%' : '—'].forEach(function (v) { tr.appendChild(el('td', '', v)); });
+    tb.appendChild(tr);
+  });
+  $('rep-students').textContent = matrix.students.length;
+  $('rep-sessions').textContent = total;
+  $('rep-avg').textContent = matrix.students.length && total ? (Math.round(sumPct * 10 / matrix.students.length) / 10) + '%' : '—';
+  show('rep-box', true);
+};
+
+$('r-xlsx').onclick = function () {
+  if (!matrix || typeof XLSX === 'undefined') { msg('rep-msg', 'تعذّر تحميل مكتبة Excel.', 'bad'); return; }
+  var total = matrix.sessions.length;
+  var head = ['رقم الجلوس', 'الاسم'].concat(matrix.sessions.map(function (s) { return s.label; })).concat(['عدد المحاضرات', 'الحضور', 'الغياب', 'النسبة %']);
+  var aoa = [head];
+  matrix.students.forEach(function (s) {
+    aoa.push([s.seat, s.name].concat(s.marks.map(function (m) { return m ? 'حاضر' : 'غائب'; })).concat([total, s.present, total - s.present, total ? s.pct : '']));
+  });
+  var ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [{ wch: 12 }, { wch: 30 }];
+  var wb = XLSX.utils.book_new(); wb.Workbook = { Views: [{ RTL: true }] };
+  var sheetName = ((matrixSubject && matrixSubject.name) || 'الحضور').replace(/[\[\]\*\?\/\\:]/g, '-').substring(0, 31);
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  var out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  var blob = new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  var link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'حضور - ' + ((matrixSubject && matrixSubject.name) || 'مادة').replace(/[\\\/:*?"<>|]/g, '-') + '.xlsx';
+  document.body.appendChild(link); link.click(); link.remove();
+  setTimeout(function () { URL.revokeObjectURL(link.href); }, 4000);
+};
+
+/* ============ الإدارة ============ */
+async function loadAdmin() {
+  if (me.role !== 'admin') return;
+  var d = await sb.from('departments').select('id,name').order('name'); departments = d.data || [];
+  var p = await sb.from('profiles').select('id,full_name,email,role,active,department_id').order('full_name'); profiles = p.data || [];
+  var a = await sb.from('allowed_users').select('email,full_name,role,department_id').order('email');
+  fillDepts();
+  var ul = $('a-depts'); ul.innerHTML = '';
+  departments.forEach(function (x) {
+    var li = el('li', '', x.name + ' '), b = el('button', 'danger', 'حذف'); b.style.padding = '3px 10px';
+    b.onclick = async function () {
+      var r = await sb.from('departments').delete().eq('id', x.id);
+      if (r.error) msg('a-msg', errText(r.error), 'bad'); else loadAdmin();
+    };
+    li.appendChild(b); ul.appendChild(li);
+  });
+  var tb = $('a-users'); tb.innerHTML = '';
+  var byEmail = {}; profiles.forEach(function (x) { byEmail[x.email] = x; });
+  (a.data || []).forEach(function (u) {
+    var pr = byEmail[u.email], tr = el('tr');
+    tr.appendChild(el('td', '', u.full_name)); tr.appendChild(el('td', '', u.email));
+    tr.appendChild(el('td', '', u.role === 'admin' ? 'مدير' : 'محاضر'));
+    tr.appendChild(el('td', '', pr ? (pr.active ? 'نشط' : 'موقوف') : 'لم يسجّل بعد'));
+    var td = el('td');
+    if (pr) {
+      var t = el('button', '', pr.active ? 'إيقاف' : 'تفعيل'); t.style.padding = '3px 10px';
+      t.onclick = async function () {
+        var r = await sb.from('profiles').update({ active: !pr.active }).eq('id', pr.id);
+        if (r.error) msg('a-msg', errText(r.error), 'bad'); else loadAdmin();
+      };
+      td.appendChild(t);
+    } else {
+      var x = el('button', 'danger', 'حذف'); x.style.padding = '3px 10px';
+      x.onclick = async function () { var r = await sb.from('allowed_users').delete().eq('email', u.email); if (r.error) msg('a-msg', errText(r.error), 'bad'); else loadAdmin(); };
+      td.appendChild(x);
+    }
+    tr.appendChild(td); tb.appendChild(tr);
+  });
+}
+
+$('a-dept-add').onclick = async function () {
+  var n = $('a-dept').value.trim(); if (!n) return;
+  var r = await sb.from('departments').insert({ name: n });
+  if (r.error) msg('a-msg', /duplicate/i.test(r.error.message) ? 'القسم موجود بالفعل.' : errText(r.error), 'bad');
+  else { $('a-dept').value = ''; msg('a-msg', ''); loadAdmin(); }
+};
+$('a-user-add').onclick = async function () {
+  var email = $('a-email').value.trim().toLowerCase(), name = $('a-name').value.trim();
+  if (!email || !name) { msg('a-msg', 'اكتب البريد والاسم.', 'bad'); return; }
+  var r = await sb.from('allowed_users').upsert({ email: email, full_name: name, role: $('a-role').value, department_id: $('a-udept').value || null });
+  if (r.error) msg('a-msg', errText(r.error), 'bad');
+  else { $('a-email').value = ''; $('a-name').value = ''; msg('a-msg', 'تمت الإضافة. اطلب منه الدخول وإنشاء حساب بنفس البريد.', 'ok'); loadAdmin(); }
+};
+
+init();
+</script>
+</body>
+</html>
