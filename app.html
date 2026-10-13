@@ -139,9 +139,26 @@ catch(e){document.documentElement.dataset.theme='azhar';}
   .stat > div { min-width:0; }
   .stat b { display:block; font-size:1.55rem; line-height:1.2; font-variant-numeric:tabular-nums; }
   .stat > div > span { color:var(--muted); font-size:.84rem; display:block; }
+  .stat .sico { color:var(--tc); }
   .sico { width:48px; height:48px; flex:none; border-radius:14px; display:grid; place-items:center; color:var(--tc);
     background:color-mix(in srgb, var(--tc) 15%, var(--card)); }
   .sico i.ico { width:26px; height:26px; }
+
+  /* ===== أيقونات أقسام الرئيسية ===== */
+  .launch { display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:12px; margin-bottom:14px; }
+  .ltile { --tc:var(--brand); position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:12px; text-align:start; padding:18px;
+    border-radius:18px; background:var(--card); border:1px solid var(--line); box-shadow:var(--shadow); font-weight:400; transition:transform .15s, border-color .15s; }
+  .ltile:hover { transform:translateY(-2px); border-color:var(--tc); }
+  .ltile .sico { width:58px; height:58px; border-radius:18px; }
+  .ltile .sico i.ico { width:30px; height:30px; }
+  .ltile .lt { display:block; }
+  .ltile .lt b { display:block; font-size:1.02rem; }
+  .ltile .lt span { display:block; color:var(--muted); font-size:.84rem; margin-top:2px; }
+  .lbadge { position:absolute; top:12px; inset-inline-end:12px; padding:2px 10px; border-radius:99px; font-size:.82rem; font-weight:700;
+    background:color-mix(in srgb, var(--tc) 16%, var(--card)); color:var(--tc); }
+  .ltile .lbadge[hidden] { display:none; }
+  @media (max-width: 700px) { .subnav { flex-wrap:nowrap; overflow-x:auto; padding-bottom:6px; } .subnav button { flex:none; white-space:nowrap; } }
+  @media (max-width: 480px) { .launch { grid-template-columns:1fr 1fr; } .ltile { padding:12px; gap:8px; } .ltile .sico { width:46px; height:46px; } .ltile .lt span { display:none; } }
 
   /* ===== الشاشة الافتتاحية + الدخول ===== */
   .login { display:grid; grid-template-columns:1.15fr 1fr; min-height:100vh; }
@@ -297,21 +314,22 @@ catch(e){document.documentElement.dataset.theme='azhar';}
   <!-- المواد -->
   <!-- الرئيسية (الداشبورد) -->
   <section id="tab-dash">
+    <div id="subnav-dash" class="subnav" hidden></div>
     <div id="dash-msg" class="msg" hidden></div>
-    <div class="stats" id="dash-stats"></div>
-    <div id="dash-empty" class="card" hidden><h2 data-ic="info">لا توجد بيانات بعد</h2><p>أنشئ مادة وارفع كشف الطلاب من تبويب «المواد وكشوف الطلاب»، ثم ابدأ جلسة حضور، وستظهر هنا الإحصائيات.</p></div>
+    <div data-sub="overview"><div class="stats" id="dash-stats"></div><div class="launch" id="dash-launch"></div></div>
+    <div data-sub="overview"><div id="dash-empty" class="card" hidden><h2 data-ic="info">لا توجد بيانات بعد</h2><p>أنشئ مادة وارفع كشف الطلاب من تبويب «المواد وكشوف الطلاب»، ثم ابدأ جلسة حضور، وستظهر هنا الإحصائيات.</p></div></div>
     <div id="dash-body">
-      <div class="card"><h2 data-ic="activity">نسبة الحضور في آخر المحاضرات</h2>
+      <div class="card" data-sub="trend"><h2 data-ic="activity">نسبة الحضور في آخر المحاضرات</h2>
         <div class="chart" id="ch-trend"></div><p class="cap" id="cap-trend" aria-live="polite"></p></div>
-      <div class="card"><h2 data-ic="calendar">عدد التسجيلات خلال آخر 14 يومًا</h2>
+      <div class="card" data-sub="daily"><h2 data-ic="calendar">عدد التسجيلات خلال آخر 14 يومًا</h2>
         <div class="chart" id="ch-daily"></div><p class="cap" id="cap-daily" aria-live="polite"></p></div>
-      <div class="card"><h2 data-ic="book">نسبة الحضور حسب المادة</h2>
+      <div class="card" data-sub="subjects"><h2 data-ic="book">نسبة الحضور حسب المادة</h2>
         <p class="hint" style="margin-top:0">اضغط على مادة لفتح تقريرها. الأحمر: أقل من حدّ الحرمان.</p>
         <div id="d-subj"></div></div>
-      <div class="card" id="d-dept-card" hidden><h2 data-ic="sitemap">نسبة الحضور حسب القسم</h2>
+      <div data-sub="depts"><div class="card" id="d-dept-card" hidden><h2 data-ic="sitemap">نسبة الحضور حسب القسم</h2>
         <p class="hint" style="margin-top:0">القسم يشمل ما تحته من أقسام فرعية.</p>
-        <div id="d-dept"></div></div>
-      <div class="card"><h2 data-ic="alert">طلاب معرَّضون للحرمان</h2>
+        <div id="d-dept"></div></div></div>
+      <div class="card" data-sub="risk"><h2 data-ic="alert">طلاب معرَّضون للحرمان</h2>
         <div class="row">
           <div><label for="d-thr">حدّ الحضور (%)</label><input id="d-thr" type="number" min="1" max="100" inputmode="numeric"></div>
           <div><label for="d-risk-subj">المادة</label><select id="d-risk-subj"></select></div>
@@ -320,8 +338,8 @@ catch(e){document.documentElement.dataset.theme='azhar';}
         <p><button id="d-risk-xlsx" type="button" data-ic="download">تحميل القائمة Excel</button></p>
         <div class="scroll"><table><thead><tr><th>المادة</th><th>رقم الجلوس</th><th>الاسم</th><th>الحضور</th><th>النسبة</th></tr></thead><tbody id="d-risk-rows"></tbody></table></div>
       </div>
-      <div class="card" id="d-lect-card" hidden><h2 data-ic="users">نشاط المحاضرين</h2>
-        <div class="scroll"><table><thead><tr><th>المحاضر</th><th>المواد</th><th>المحاضرات</th><th>آخر محاضرة</th></tr></thead><tbody id="d-lect-rows"></tbody></table></div></div>
+      <div data-sub="lecturers"><div class="card" id="d-lect-card" hidden><h2 data-ic="users">نشاط المحاضرين</h2>
+        <div class="scroll"><table><thead><tr><th>المحاضر</th><th>المواد</th><th>المحاضرات</th><th>آخر محاضرة</th></tr></thead><tbody id="d-lect-rows"></tbody></table></div></div></div>
     </div>
     <p><button id="d-refresh" type="button" data-ic="refresh">تحديث</button></p>
   </section>
@@ -648,7 +666,14 @@ $('btn-logout').onclick = async function () {
 
 /* ============ القائمة الجانبية والتنقل ============ */
 var NAV = [
-  { id: 'dash', t: 'الرئيسية', ic: 'home' },
+  { id: 'dash', t: 'الرئيسية', ic: 'home', subs: [
+    ['overview', 'نظرة عامة', 'home'],
+    ['trend', 'آخر المحاضرات', 'activity', 0, '#0b6b4f', 'نسبة الحضور في آخر المحاضرات'],
+    ['daily', 'التسجيلات اليومية', 'calendar', 0, '#2563eb', 'عدد التسجيلات خلال آخر 14 يومًا'],
+    ['subjects', 'الحضور حسب المادة', 'book', 0, '#7c3aed', 'قارن المواد وافتح تقرير أي مادة'],
+    ['depts', 'الحضور حسب القسم', 'sitemap', 0, '#0891b2', 'نسب الحضور لكل قسم وما تحته'],
+    ['risk', 'المعرَّضون للحرمان', 'alert', 0, '#dc2626', 'طلاب أقل من حدّ الحضور'],
+    ['lecturers', 'نشاط المحاضرين', 'users', 1, '#d97706', 'محاضرات كل محاضر وآخر نشاط']] },
   { id: 'subjects', t: 'المواد وكشوف الطلاب', ic: 'book' },
   { id: 'session', t: 'جلسة حضور', ic: 'qr' },
   { id: 'reports', t: 'التقارير', ic: 'chart' },
@@ -675,12 +700,23 @@ function buildNav() {
     nav.appendChild(b);
     if (n.subs) {
       var w = el('div', 'nav-subs'); w.id = 'subs-' + n.id;
-      n.subs.forEach(function (s) { w.appendChild(navBtn('nav-btn', s[1], s[2], { 'data-nav': n.id + ':' + s[0] })); });
+      n.subs.forEach(function (s) { if (s[3] && !isAdmin) return; w.appendChild(navBtn('nav-btn', s[1], s[2], { 'data-nav': n.id + ':' + s[0] })); });
       nav.appendChild(w);
       var sn = $('subnav-' + n.id);
       if (sn) {
         sn.innerHTML = '';
-        n.subs.forEach(function (s) { sn.appendChild(navBtn('', s[1], s[2], { 'data-go': n.id + ':' + s[0] })); });
+        n.subs.forEach(function (s) { if (s[3] && !isAdmin) return; sn.appendChild(navBtn('', s[1], s[2], { 'data-go': n.id + ':' + s[0] })); });
+        if (n.id === 'dash') {
+          var L = $('dash-launch'); L.innerHTML = '';
+          n.subs.forEach(function (s) {
+            if (!s[4] || (s[3] && !isAdmin)) return;
+            var b = el('button', 'ltile'); b.type = 'button'; b.setAttribute('data-go', 'dash:' + s[0]); b.style.setProperty('--tc', s[4]);
+            var ic = el('span', 'sico'); var i2 = el('i', 'ico'); i2.setAttribute('data-ic', s[2]); ic.appendChild(i2); b.appendChild(ic);
+            var w2 = el('span', 'lt'); w2.appendChild(el('b', '', s[1])); w2.appendChild(el('span', '', s[5])); b.appendChild(w2);
+            var bd = el('span', 'lbadge'); bd.id = 'lb-' + s[0]; bd.hidden = true; b.appendChild(bd);
+            L.appendChild(b);
+          });
+        }
       }
     }
   });
@@ -693,7 +729,7 @@ function go(tab, sub, noLoad) {
   curTab = tab; if (sub) curSub[tab] = sub;
   NAV.forEach(function (x) { $('tab-' + x.id).hidden = (x.id !== tab); });
   var sec = $('tab-' + tab);
-  if (n.subs) [].forEach.call(sec.querySelectorAll(':scope > [data-sub]'), function (c) { c.hidden = (c.dataset.sub !== sub); });
+  if (n.subs) [].forEach.call(sec.querySelectorAll('[data-sub]'), function (c) { c.hidden = (c.dataset.sub !== sub); });
   [].forEach.call($('tabs').querySelectorAll('.nav-btn'), function (b) {
     var on = b.dataset.tab ? b.dataset.tab === tab : (b.dataset.nav === tab + ':' + sub);
     b.classList.toggle('on', on);
@@ -703,6 +739,7 @@ function go(tab, sub, noLoad) {
   [].forEach.call(document.querySelectorAll('.subnav button'), function (b) { b.classList.toggle('on', b.dataset.go === tab + ':' + sub); });
   var h = $('page-title'); h.textContent = n.t; h.setAttribute('data-ic', n.ic);
   if (sub) { var sd = n.subs.filter(function (s) { return s[0] === sub; })[0]; if (sd) { h.textContent = n.t + ' — ' + sd[1]; h.setAttribute('data-ic', sd[2]); } }
+  if (tab === 'dash') { $('subnav-dash').hidden = (sub === 'overview'); if (dash) renderDash(); }
   closeSide();
   window.scrollTo(0, 0);
   if (noLoad || !changedTab) return;
@@ -713,7 +750,7 @@ function go(tab, sub, noLoad) {
 }
 document.addEventListener('click', function (e) {
   var b = e.target.closest('button[data-tab], button[data-nav], button[data-go]'); if (!b) return;
-  if (b.dataset.tab) return go(b.dataset.tab);
+  if (b.dataset.tab) return go(b.dataset.tab, b.dataset.tab === 'dash' ? 'overview' : null);
   var p = (b.dataset.nav || b.dataset.go).split(':'); go(p[0], p[1]);
 });
 
@@ -1337,6 +1374,8 @@ function renderDash() {
     var ic = el('span', 'sico'); var i2 = el('i', 'ico'); i2.setAttribute('data-ic', t[2]); ic.appendChild(i2); d.appendChild(ic);
     var w = el('div'); w.appendChild(el('b', '', String(t[0]))); w.appendChild(el('span', '', t[1])); d.appendChild(w); box.appendChild(d);
   });
+  var bd = { trend: (dash.trend || []).length + ' محاضرة', subjects: S.length + ' مادة', risk: String(dash.at_risk_total) };
+  Object.keys(bd).forEach(function (k) { var b = $('lb-' + k); if (b) { b.textContent = bd[k]; b.hidden = false; } });
   if (!S.length) return;
 
   var tr = dash.trend || [];
