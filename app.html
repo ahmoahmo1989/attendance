@@ -683,7 +683,7 @@ var NAV = [
   { id: 'admin', t: 'الإدارة', ic: 'settings', admin: 1, subs: [
     ['depts', 'الأقسام', 'sitemap'], ['users', 'المحاضرون والمستخدمون', 'user-plus'], ['registered', 'المسجلون على النظام', 'shield-check']] }
 ];
-var curTab = 'dash', curSub = {};
+var curTab = 'dash', curSub = {}, collapsed = {};
 
 function navBtn(cls, text, ic, attrs) {
   var b = el('button', cls, text); b.type = 'button'; b.setAttribute('data-ic', ic);
@@ -726,6 +726,7 @@ function go(tab, sub, noLoad) {
   if (n.admin && !(me && me.role === 'admin')) return;
   if (n.subs && !sub) sub = curSub[tab] || n.subs[0][0];
   var changedTab = tab !== curTab;
+  if (changedTab) collapsed[tab] = false;
   curTab = tab; if (sub) curSub[tab] = sub;
   NAV.forEach(function (x) { $('tab-' + x.id).hidden = (x.id !== tab); });
   var sec = $('tab-' + tab);
@@ -733,9 +734,9 @@ function go(tab, sub, noLoad) {
   [].forEach.call($('tabs').querySelectorAll('.nav-btn'), function (b) {
     var on = b.dataset.tab ? b.dataset.tab === tab : (b.dataset.nav === tab + ':' + sub);
     b.classList.toggle('on', on);
-    if (b.dataset.tab) { var nn = NAV.filter(function (x) { return x.id === b.dataset.tab; })[0]; if (nn && nn.subs) b.setAttribute('aria-expanded', on ? 'true' : 'false'); }
+    if (b.dataset.tab) { var nn = NAV.filter(function (x) { return x.id === b.dataset.tab; })[0]; if (nn && nn.subs) b.setAttribute('aria-expanded', (on && !collapsed[nn.id]) ? 'true' : 'false'); }
   });
-  NAV.forEach(function (x) { var w = $('subs-' + x.id); if (w) w.classList.toggle('open', x.id === tab); });
+  NAV.forEach(function (x) { var w = $('subs-' + x.id); if (w) w.classList.toggle('open', x.id === tab && !collapsed[x.id]); });
   [].forEach.call(document.querySelectorAll('.subnav button'), function (b) { b.classList.toggle('on', b.dataset.go === tab + ':' + sub); });
   var h = $('page-title'); h.textContent = n.t; h.setAttribute('data-ic', n.ic);
   if (sub) { var sd = n.subs.filter(function (s) { return s[0] === sub; })[0]; if (sd) { h.textContent = n.t + ' — ' + sd[1]; h.setAttribute('data-ic', sd[2]); } }
@@ -750,7 +751,16 @@ function go(tab, sub, noLoad) {
 }
 document.addEventListener('click', function (e) {
   var b = e.target.closest('button[data-tab], button[data-nav], button[data-go]'); if (!b) return;
-  if (b.dataset.tab) return go(b.dataset.tab, b.dataset.tab === 'dash' ? 'overview' : null);
+  if (b.dataset.tab) {
+    var tb = b.dataset.tab, nd = NAV.filter(function (x) { return x.id === tb; })[0];
+    if (nd.subs && tb === curTab && (tb !== 'dash' || curSub.dash === 'overview')) {   // ضغطة ثانية على نفس القسم: طيّ/فتح قائمته الفرعية
+      collapsed[tb] = !collapsed[tb];
+      $('subs-' + tb).classList.toggle('open', !collapsed[tb]);
+      b.setAttribute('aria-expanded', collapsed[tb] ? 'false' : 'true');
+      return;
+    }
+    return go(tb, tb === 'dash' ? 'overview' : null);
+  }
   var p = (b.dataset.nav || b.dataset.go).split(':'); go(p[0], p[1]);
 });
 
