@@ -387,6 +387,11 @@ catch(e){document.documentElement.dataset.theme='azhar';}
         <h2 data-ic="play">بدء جلسة حضور</h2>
         <label for="s-subject">المادة</label>
         <select id="s-subject"></select>
+        <div id="s-hall-box" hidden>
+          <label for="s-hall">القاعة (لربط بصمة الوجه بالمحاضرة)</label>
+          <select id="s-hall"></select>
+          <p class="hint" style="margin:4px 0 0">اختر القاعة التي فيها جهاز البصمة ليُسجَّل الحضور منه تلقائيًا. اتركها «بدون قاعة» إن كنت ستعتمد على الرابط أو QR فقط.</p>
+        </div>
         <label for="s-minutes">مدة فتح التسجيل (دقيقة)</label>
         <input id="s-minutes" type="number" min="1" max="180" value="15">
         <label for="s-mode">طريقة التسجيل</label>
@@ -582,6 +587,32 @@ catch(e){document.documentElement.dataset.theme='azhar';}
       <h2 data-ic="shield-check">المسجَّلون على النظام</h2>
       <div class="scroll"><table><thead><tr><th>الاسم</th><th>البريد</th><th>الصلاحية</th><th>الحالة</th><th></th></tr></thead><tbody id="a-users"></tbody></table></div>
     </div>
+    <div class="card" data-sub="halls">
+      <h2 data-ic="pin">القاعات</h2>
+      <p class="hint">أضف كل قاعة أو مدرج فيه جهاز بصمة. اختيار القاعة عند بدء الجلسة هو الذي يربط بصمات الطلاب بالمحاضرة.</p>
+      <div id="h-msg" class="msg" hidden></div>
+      <div class="row">
+        <div><label for="h-name">اسم القاعة</label><input id="h-name" placeholder="مثال: مدرج 1"></div>
+        <div><label for="h-building">المبنى (اختياري)</label><input id="h-building" placeholder="مثال: المبنى الرئيسي"></div>
+      </div>
+      <button id="h-add" data-ic="plus" class="primary" type="button">إضافة قاعة</button>
+      <ul class="plain" id="h-list"></ul>
+    </div>
+    <div class="card" data-sub="halls">
+      <h2 data-ic="settings">أجهزة البصمة</h2>
+      <p class="hint">اربط كل جهاز بقاعته. «رقم الجهاز» هو الرقم الظاهر على شاشة الجهاز في «معلومات النظام»، وعنوان IP كذلك (الأصفار الزائدة مثل 192.168.001.191 تُحذف تلقائيًا).</p>
+      <div id="dv-msg" class="msg" hidden></div>
+      <div class="row">
+        <div><label for="dv-no">رقم الجهاز</label><input id="dv-no" type="number" min="1" inputmode="numeric" placeholder="2249"></div>
+        <div><label for="dv-hall">القاعة</label><select id="dv-hall"></select></div>
+      </div>
+      <div class="row">
+        <div><label for="dv-ip">عنوان IP (اختياري)</label><input id="dv-ip" dir="ltr" inputmode="decimal" placeholder="192.168.1.191"></div>
+        <div><label for="dv-model">الموديل (اختياري)</label><input id="dv-model" dir="ltr" value="AD-505W-AI"></div>
+      </div>
+      <p><button id="dv-save" data-ic="plus" class="primary" type="button">إضافة جهاز</button> <button id="dv-cancel" type="button" hidden>إلغاء التعديل</button></p>
+      <div class="scroll"><table><thead><tr><th>رقم الجهاز</th><th>القاعة</th><th>IP</th><th>الموديل</th><th>آخر بصمة</th><th>الحالة</th><th></th></tr></thead><tbody id="dv-rows"></tbody></table></div>
+    </div>
   </section>
    </div>
   </main>
@@ -704,7 +735,8 @@ var NAV = [
     ['import', 'استيراد من Excel', 'upload'], ['link', 'ربط القسم والفرقة والمادة', 'link'], ['assigned', 'المواد المسنَدة', 'list'],
     ['courses', 'كتالوج المواد', 'book'], ['levels', 'الفرق الدراسية', 'cap'], ['lecturers', 'المحاضرون', 'users']] },
   { id: 'admin', t: 'الإدارة', ic: 'settings', admin: 1, subs: [
-    ['depts', 'الأقسام', 'sitemap'], ['users', 'المحاضرون والمستخدمون', 'user-plus'], ['registered', 'المسجلون على النظام', 'shield-check']] }
+    ['depts', 'الأقسام', 'sitemap'], ['users', 'المحاضرون والمستخدمون', 'user-plus'], ['registered', 'المسجلون على النظام', 'shield-check'],
+    ['halls', 'القاعات وأجهزة البصمة', 'pin']] }
 ];
 var curTab = 'dash', curSub = {}, collapsed = {};
 
@@ -850,6 +882,7 @@ async function loadAll() {
   fillDepts();
   fillCatalog();
   await loadSubjects();
+  await loadHalls();
   await resumeLive();
   loadDash();
 }
@@ -1090,7 +1123,15 @@ $('start').onclick = async function () {
   if (useLoc) { lsSet('att_lat', $('s-lat').value); lsSet('att_lng', $('s-lng').value); lsSet('att_radius', $('s-radius').value); }
   lsSet('att_minutes', $('s-minutes').value);
   msg('sess-msg', '');
+  // ربط الجلسة بالقاعة (لتسجيل بصمة الوجه). لا يمنع بدء الجلسة لو فشل.
+  var hallId = $('s-hall-box').hidden ? '' : $('s-hall').value, hallWarn = '';
+  lsSet('att_hall', hallId);
+  if (hallId) {
+    var hr = await sb.rpc('set_session_hall', { p_session: r.data.id, p_hall: hallId });
+    if (hr.error) hallWarn = 'بدأت الجلسة، لكن تعذّر ربطها بالقاعة (' + errText(hr.error) + '). لن تُسجَّل بصمات الجهاز لهذه الجلسة؛ التسجيل بالرابط يعمل كالمعتاد.';
+  }
   await startLive(r.data.id);
+  if (hallWarn) msg('live-msg', hallWarn, 'bad');
 };
 
 async function refreshRecent() {
@@ -1337,6 +1378,7 @@ async function loadAdmin() {
     }
     tr.appendChild(td); tb.appendChild(tr);
   });
+  await loadHallsAdmin();
 }
 
 $('a-dept-add').onclick = async function () {
@@ -1351,6 +1393,129 @@ $('a-user-add').onclick = async function () {
   var r = await sb.from('allowed_users').upsert({ email: email, full_name: name, role: $('a-role').value, department_id: $('a-udept').value || null });
   if (r.error) msg('a-msg', errText(r.error), 'bad');
   else { $('a-email').value = ''; $('a-name').value = ''; msg('a-msg', 'تمت الإضافة. اطلب منه الدخول وإنشاء حساب بنفس البريد.', 'ok'); loadAdmin(); }
+};
+
+/* ============ القاعات وأجهزة البصمة ============ */
+var halls = [], devices = [], editDeviceId = '';
+
+// يقرأ القاعات (متاحة لكل المستخدمين) ويملأ القوائم. يُرجع الخطأ إن وُجد.
+async function loadHalls() {
+  var r = await sb.from('halls').select('id,name,building').order('name');
+  halls = r.error ? [] : (r.data || []);
+  fillHallSelects();
+  return r.error || null;
+}
+
+function fillHallSelects() {
+  var s = $('s-hall'), cur = s.value || lsGet('att_hall') || '';
+  s.innerHTML = '';
+  var o0 = el('option', '', '— بدون قاعة (رابط / QR فقط) —'); o0.value = ''; s.appendChild(o0);
+  halls.forEach(function (h) { var o = el('option', '', h.name + (h.building ? ' — ' + h.building : '')); o.value = h.id; s.appendChild(o); });
+  s.value = halls.some(function (h) { return h.id === cur; }) ? cur : '';
+  $('s-hall-box').hidden = !halls.length;
+  var d = $('dv-hall'), dc = d.value;
+  d.innerHTML = '';
+  var d0 = el('option', '', '— اختر القاعة —'); d0.value = ''; d.appendChild(d0);
+  halls.forEach(function (h) { var o = el('option', '', h.name + (h.building ? ' — ' + h.building : '')); o.value = h.id; d.appendChild(o); });
+  d.value = halls.some(function (h) { return h.id === dc; }) ? dc : '';
+}
+
+function hallName(id) {
+  var h = halls.filter(function (x) { return x.id === id; })[0];
+  return h ? h.name : '—';
+}
+
+async function loadHallsAdmin() {
+  var he = await loadHalls();
+  var dv = await sb.from('devices').select('id,device_no,hall_id,ip_address,model,is_active,last_sync_at').order('device_no');
+  devices = dv.error ? [] : (dv.data || []);
+  var err = he || dv.error;
+  if (err) msg('h-msg', 'تعذّر تحميل القاعات والأجهزة: ' + errText(err) + ' — تأكد من تشغيل ملفات SQL الخاصة بالقاعات في Supabase.', 'bad');
+  else msg('h-msg', '');
+  renderHalls(); renderDevices();
+}
+
+function renderHalls() {
+  var ul = $('h-list'); ul.innerHTML = '';
+  if (!halls.length) ul.appendChild(el('li', '', 'لا توجد قاعات بعد. أضف أول قاعة.'));
+  halls.forEach(function (h) {
+    var n = devices.filter(function (d) { return d.hall_id === h.id; }).length;
+    var li = el('li', '', h.name + (h.building ? ' — ' + h.building : '') + ' · ' + n + ' جهاز ');
+    var b = el('button', 'danger', 'حذف'), armed = false;
+    b.style.padding = '3px 10px'; b.style.marginInlineStart = '6px';
+    b.onclick = async function () {
+      if (!armed) { armed = true; b.textContent = 'اضغط للتأكيد'; setTimeout(function () { armed = false; b.textContent = 'حذف'; }, 5000); return; }
+      var r = await sb.from('halls').delete().eq('id', h.id);
+      if (r.error) msg('h-msg', /foreign|23503/i.test(errText(r.error) + (r.error.code || '')) ? 'لا يمكن حذف قاعة مرتبطة بأجهزة أو بجلسات سابقة. انقل أجهزتها لقاعة أخرى أولًا.' : errText(r.error), 'bad');
+      else { msg('h-msg', ''); loadHallsAdmin(); }
+    };
+    li.appendChild(b); ul.appendChild(li);
+  });
+}
+
+function fmtIp(v) { return v ? String(v).replace(/\/32$/, '') : '—'; }
+
+function renderDevices() {
+  var tb = $('dv-rows'); tb.innerHTML = '';
+  if (!devices.length) { var tr0 = el('tr'), td0 = el('td', '', 'لا توجد أجهزة بعد.'); td0.colSpan = 7; tr0.appendChild(td0); tb.appendChild(tr0); return; }
+  devices.forEach(function (d) {
+    var tr = el('tr');
+    [String(d.device_no), hallName(d.hall_id), fmtIp(d.ip_address), d.model || '—',
+      d.last_sync_at ? new Date(d.last_sync_at).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' }) : 'لا يوجد بعد',
+      d.is_active ? 'مفعّل' : 'معطّل'].forEach(function (v) { tr.appendChild(el('td', '', v)); });
+    var td = el('td');
+    var e = el('button', '', 'تعديل'); e.style.padding = '3px 10px';
+    e.onclick = function () {
+      editDeviceId = d.id;
+      $('dv-no').value = d.device_no; $('dv-hall').value = d.hall_id || ''; $('dv-ip').value = d.ip_address ? fmtIp(d.ip_address) : ''; $('dv-model').value = d.model || '';
+      $('dv-save').textContent = 'حفظ التعديل'; $('dv-cancel').hidden = false;
+      $('dv-no').scrollIntoView({ block: 'center' });
+    };
+    var t = el('button', '', d.is_active ? 'تعطيل' : 'تفعيل'); t.style.padding = '3px 10px'; t.style.marginInlineStart = '6px';
+    t.onclick = async function () {
+      var r = await sb.from('devices').update({ is_active: !d.is_active }).eq('id', d.id);
+      if (r.error) msg('dv-msg', errText(r.error), 'bad'); else { msg('dv-msg', ''); loadHallsAdmin(); }
+    };
+    var x = el('button', 'danger', 'حذف'), armed = false; x.style.padding = '3px 10px'; x.style.marginInlineStart = '6px';
+    x.onclick = async function () {
+      if (!armed) { armed = true; x.textContent = 'اضغط للتأكيد'; setTimeout(function () { armed = false; x.textContent = 'حذف'; }, 5000); return; }
+      var r = await sb.from('devices').delete().eq('id', d.id);
+      if (r.error) msg('dv-msg', errText(r.error), 'bad'); else { msg('dv-msg', ''); loadHallsAdmin(); }
+    };
+    td.appendChild(e); td.appendChild(t); td.appendChild(x);
+    tr.appendChild(td); tb.appendChild(tr);
+  });
+}
+
+function resetDeviceForm() {
+  editDeviceId = '';
+  $('dv-no').value = ''; $('dv-hall').value = ''; $('dv-ip').value = ''; $('dv-model').value = 'AD-505W-AI';
+  $('dv-save').textContent = 'إضافة جهاز'; $('dv-cancel').hidden = true;
+}
+$('dv-cancel').onclick = function () { resetDeviceForm(); msg('dv-msg', ''); };
+
+$('h-add').onclick = async function () {
+  var name = $('h-name').value.trim();
+  if (!name) { msg('h-msg', 'اكتب اسم القاعة.', 'bad'); return; }
+  var r = await sb.from('halls').insert({ name: name, building: $('h-building').value.trim() || null });
+  if (r.error) msg('h-msg', /duplicate/i.test(errText(r.error)) ? 'توجد قاعة بنفس الاسم.' : errText(r.error), 'bad');
+  else { $('h-name').value = ''; $('h-building').value = ''; msg('h-msg', ''); loadHallsAdmin(); }
+};
+
+$('dv-save').onclick = async function () {
+  var no = parseInt($('dv-no').value, 10), hall = $('dv-hall').value, ip = $('dv-ip').value.trim();
+  if (!isFinite(no) || no <= 0) { msg('dv-msg', 'اكتب رقم الجهاز كما يظهر على شاشته.', 'bad'); return; }
+  if (!hall) { msg('dv-msg', 'اختر القاعة.', 'bad'); return; }
+  if (ip) {
+    var parts = ip.split('.');
+    if (parts.length !== 4 || !parts.every(function (p) { return /^\d{1,3}$/.test(p) && parseInt(p, 10) <= 255; })) { msg('dv-msg', 'عنوان IP غير صحيح. مثال: 192.168.1.191', 'bad'); return; }
+    ip = parts.map(function (p) { return String(parseInt(p, 10)); }).join('.');   // حذف الأصفار الزائدة
+  }
+  var row = { device_no: no, hall_id: hall, ip_address: ip || null, model: $('dv-model').value.trim() || null };
+  var r = editDeviceId ? await sb.from('devices').update(row).eq('id', editDeviceId) : await sb.from('devices').insert(row);
+  if (r.error) { msg('dv-msg', /duplicate/i.test(errText(r.error)) ? 'رقم الجهاز مسجَّل بالفعل.' : errText(r.error), 'bad'); return; }
+  var wasEdit = !!editDeviceId;
+  resetDeviceForm(); msg('dv-msg', wasEdit ? 'تم حفظ التعديل.' : 'تمت إضافة الجهاز.', 'ok'); loadHallsAdmin();
 };
 
 /* ============ الداشبورد ============ */
