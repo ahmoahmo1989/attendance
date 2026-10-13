@@ -891,7 +891,7 @@ function fillDepts() {
 
 async function loadSubjects() {
   var r = await sb.from('subjects')
-    .select('id,name,level,term,lecturer_id,lecturer_name,archived,department_id,course_id,level_id,subject_students(count)')
+    .select('id,name,level,term,lecturer_id,pending_email,lecturer_name,archived,department_id,course_id,level_id,subject_students(count)')
     .order('created_at', { ascending: false });
   if (r.error) { $('subjects-list').textContent = errText(r.error); return; }
   subjects = r.data || [];
@@ -1572,14 +1572,21 @@ function fillSel(id, ph, items, label) {
   items.forEach(function (x) { var o = el('option', '', label(x)); o.value = x.id; sel.appendChild(o); });
   sel.value = cur && items.some(function (x) { return x.id === cur; }) ? cur : '';
 }
+var allowedUsers = [];
+function subjKey(s) { return s.lecturer_id || (s.pending_email ? 'p:' + String(s.pending_email).toLowerCase() : ''); }
+function pendingLects() {
+  var have = {}; profiles.forEach(function (p) { have[String(p.email || '').toLowerCase()] = 1; });
+  return allowedUsers.filter(function (a) { return !have[String(a.email || '').toLowerCase()]; })
+    .map(function (a) { return { id: 'p:' + String(a.email).toLowerCase(), email: a.email, full_name: (a.full_name || a.email) + ' (لم يسجّل بعد)', pending: true }; });
+}
 function fillCatalog() {
   fillSel('f-level', '— اختر الفرقة —', levels, function (x) { return x.name; });
   fillSel('f-subject', '— اختر المادة —', courses.filter(function (c) { return courseFits(c, $('f-dept').value); }), courseLabel);
   fillSel('as-level', '— اختر الفرقة —', levels, function (x) { return x.name; });
   fillSel('as-course', '— اختر المادة —', courses.filter(function (c) { return courseFits(c, $('as-dept').value); }), courseLabel);
   var act = profiles.filter(function (x) { return x.active; });
-  fillSel('as-lect', '— اختر المحاضر —', act, function (x) { return x.full_name || x.email; });
-  fillSel('as-flect', 'كل المحاضرين', profiles, function (x) { return x.full_name || x.email; });
+  fillSel('as-lect', '— اختر المحاضر —', act.concat(pendingLects()), function (x) { return x.full_name || x.email; });
+  fillSel('as-flect', 'كل المحاضرين', profiles.concat(pendingLects()), function (x) { return x.full_name || x.email; });
   var h = $('catalog-hint');
   if (!levels.length || !courses.length) {
     h.hidden = false;
@@ -1606,6 +1613,7 @@ async function loadLists(keepMsg) {
   if (!keepMsg) msg('l-msg', '');
   var d = await sb.from('departments').select('id,name,parent_id').order('name'); departments = d.data || [];
   var p = await sb.from('profiles').select('id,full_name,email,role,active,department_id').order('full_name'); profiles = p.data || [];
+  var au = await sb.from('allowed_users').select('email,full_name,role,department_id'); allowedUsers = au.data || [];
   await loadCatalog(); await loadSubjects();
   fillDepts(); fillCatalog(); renderLists();
 }
@@ -1647,7 +1655,7 @@ function renderLists() {
 
   var fd = $('as-fdept').value, fl = $('as-flect').value;
   var rows = subjects.filter(function (s) {
-    return (!fd || (s.department_id && isUnderDept(s.department_id, fd))) && (!fl || s.lecturer_id === fl);
+    return (!fd || (s.department_id && isUnderDept(s.department_id, fd))) && (!fl || subjKey(s) === fl);
   });
   $('as-count').textContent = rows.length + ' مادة مسنَدة' + (subjects.length !== rows.length ? ' (من ' + subjects.length + ')' : '') + '.';
   var tb = $('as-rows'); tb.innerHTML = '';
@@ -1661,13 +1669,18 @@ function renderLists() {
     var tdn = el('td', '', s.name); if (s.archived) tdn.appendChild(el('span', 'tag', 'مؤرشفة')); tr.appendChild(tdn);
     var td = el('td'), sel = el('select');
     sel.setAttribute('aria-label', 'المحاضر');
-    (act.some(function (x) { return x.id === s.lecturer_id; }) ? act : act.concat(profiles.filter(function (x) { return x.id === s.lecturer_id; }))).forEach(function (x) {
+    var sk = subjKey(s), pl = pendingLects();
+    var opts = act.some(function (x) { return x.id === s.lecturer_id; }) ? act : act.concat(profiles.filter(function (x) { return x.id === s.lecturer_id; }));
+    opts = opts.concat(pl);
+    if (sk && !opts.some(function (x) { return x.id === sk; })) opts.push({ id: sk, full_name: (s.lecturer_name || s.pending_email) + ' (لم يسجّل بعد)' });
+    opts.forEach(function (x) {
       var o = el('option', '', x.full_name || x.email); o.value = x.id; sel.appendChild(o);
     });
-    sel.value = s.lecturer_id;
+    sel.value = sk;
     sel.onchange = async function () {
-      var r = await sb.from('subjects').update({ lecturer_id: sel.value }).eq('id', s.id);
-      if (r.error) { msg('l-msg', assignErr(r.error), 'bad'); sel.value = s.lecturer_id; }
+      var v = sel.value, upd = v.indexOf('p:') === 0 ? { lecturer_id: null, pending_email: v.slice(2) } : { lecturer_id: v, pending_email: null };
+      var r = await sb.from('subjects').update(upd).eq('id', s.id);
+      if (r.error) { msg('l-msg', assignErr(r.error), 'bad'); sel.value = sk; }
       else { msg('l-msg', 'تم تغيير المحاضر.', 'ok'); await loadLists(true); }
     };
     td.appendChild(sel); tr.appendChild(td);
@@ -1680,6 +1693,12 @@ function renderLists() {
     var n = subjects.filter(function (s) { return s.lecturer_id === p.id && !s.archived; }).length;
     var tr = el('tr');
     [p.full_name || p.email, deptPath(p.department_id) || '—', p.role === 'admin' ? 'مدير' : 'محاضر', p.active ? 'نشط' : 'موقوف', String(n)].forEach(function (v) { tr.appendChild(el('td', '', v)); });
+    lb.appendChild(tr);
+  });
+  pendingLects().forEach(function (p) {
+    var n = subjects.filter(function (s) { return subjKey(s) === p.id && !s.archived; }).length;
+    var tr = el('tr');
+    [p.full_name.replace(' (لم يسجّل بعد)', ''), '—', 'محاضر', 'لم يسجّل بعد', String(n)].forEach(function (v) { tr.appendChild(el('td', '', v)); });
     lb.appendChild(tr);
   });
 }
@@ -1701,7 +1720,7 @@ $('as-add').onclick = async function () {
   var dept = $('as-dept').value, lv = $('as-level').value, co = $('as-course').value, lec = $('as-lect').value, tm = $('as-term').value;
   if (!dept || !lv || !co || !lec) { msg('as-msg', 'اختر القسم والفرقة والمادة والمحاضر.', 'bad'); return; }
   if (!tm) { msg('as-msg', 'اختر الفصل الدراسي.', 'bad'); return; }
-  var r = await sb.from('subjects').insert({ course_id: co, level_id: lv, term: tm, department_id: dept, lecturer_id: lec });
+  var r = await sb.from('subjects').insert({ course_id: co, level_id: lv, term: tm, department_id: dept, lecturer_id: lec.indexOf('p:') === 0 ? null : lec, pending_email: lec.indexOf('p:') === 0 ? lec.slice(2) : null });
   if (r.error) { msg('as-msg', assignErr(r.error), 'bad'); return; }
   msg('as-msg', 'تم الربط. يجد المحاضر المادة في «موادي» ويضيف كشف الطلاب.', 'ok');
   await loadLists();
@@ -1712,7 +1731,7 @@ function nk(t) {
   return String(t == null ? '' : t).replace(/[ً-ٰٟـ]/g, '').replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/\s+/g, ' ').trim().toLowerCase();
 }
 function splitPath(t) { return String(t || '').split(/\s*[\/\\>›»←]\s*/).map(function (x) { return x.replace(/\s+/g, ' ').trim(); }).filter(Boolean); }
-var imRows = [];
+var imRows = [], imNewLect = null;
 
 function imParse(rows) {
   rows = rows.filter(function (r) { return (r || []).some(function (c) { return cellStr(c) !== ''; }); });
@@ -1742,8 +1761,11 @@ function imAnalyze() {
   tree.forEach(function (d) { byPath[nk(d.path)] = d; (byName[nk(d.name)] = byName[nk(d.name)] || []).push(d); });
   var lecName = {}, lecMail = {};
   profiles.filter(function (p) { return p.active; }).forEach(function (p) { var k = nk(p.full_name); (lecName[k] = lecName[k] || []).push(p); lecMail[String(p.email || '').toLowerCase()] = p; });
+  var allMail = {}, alName = {}, alMail = {};
+  profiles.forEach(function (p) { allMail[String(p.email || '').toLowerCase()] = p; });
+  allowedUsers.forEach(function (a) { var m = String(a.email || '').toLowerCase(); if (allMail[m]) return; alMail[m] = a; var k = nk(a.full_name); (alName[k] = alName[k] || []).push(a); });
   var have = {}, seen = {};
-  subjects.forEach(function (s) { if (!s.archived) var hb = [nk(deptPath(s.department_id)), nk(s.level), nk(s.name), s.lecturer_id].join('|'); have[hb + '|' + (s.term || '')] = 1; have[hb + '|*'] = 1; });
+  subjects.forEach(function (s) { if (s.archived) return; var hb = [nk(deptPath(s.department_id)), nk(s.level), nk(s.name), subjKey(s)].join('|'); have[hb + '|' + (s.term || '')] = 1; have[hb + '|*'] = 1; });
   return imRows.map(function (r) {
     var it = { n: r.n, dept: r.dept, level: r.level, course: r.course, lecturer: r.lecturer, code: r.code, term: '', status: 'ok', notes: [], creates: [] };
     function fail(t) { it.status = 'err'; it.notes.push(t); }
@@ -1764,12 +1786,25 @@ function imAnalyze() {
     if (lv) { clevel = lv.name; it.levelId = lv.id; } else if (allow) it.creates.push('فرقة'); else fail('الفرقة غير موجودة في القائمة.');
     var cr = courses.filter(function (x) { return nk(x.name) === nk(r.course) && (!x.department_id || !it.deptId || courseFits(x, it.deptId)); })[0], ccourse = r.course;
     if (cr) { ccourse = cr.name; it.courseId = cr.id; } else if (allow) it.creates.push('مادة'); else fail('المادة غير موجودة في الكتالوج.');
-    var lec = null;
-    if (r.lecturer.indexOf('@') > 0) lec = lecMail[r.lecturer.toLowerCase().trim()] || null;
-    else { var ls = lecName[nk(r.lecturer)] || []; if (ls.length > 1) fail('اسم المحاضر متكرر؛ استخدم بريده الإلكتروني.'); else lec = ls[0] || null; }
-    if (lec) it.lecId = lec.id; else if (it.status !== 'err') fail('المحاضر غير مسجَّل أو غير مفعّل. أضفه من «الإدارة» ثم يسجّل دخوله.');
+    var lec = null, pend = null, isMail = r.lecturer.indexOf('@') > 0, mail = r.lecturer.toLowerCase().trim();
+    if (isMail) {
+      lec = lecMail[mail] || null;
+      if (!lec && allMail[mail]) fail('المحاضر موقوف؛ فعّله من «الإدارة».');
+      else if (!lec) pend = alMail[mail] || (allow ? { email: mail, full_name: mail.split('@')[0], isNew: true } : null);
+    } else {
+      var ls = lecName[nk(r.lecturer)] || [];
+      if (ls.length > 1) fail('اسم المحاضر متكرر؛ استخدم بريده الإلكتروني.');
+      else if (ls.length) lec = ls[0];
+      else { var ps = alName[nk(r.lecturer)] || []; if (ps.length > 1) fail('اسم المحاضر متكرر؛ استخدم بريده الإلكتروني.'); else pend = ps[0] || null; }
+    }
+    if (lec) it.lecId = lec.id;
+    else if (pend) {
+      it.pendingEmail = String(pend.email).toLowerCase(); it.lecId = null;
+      if (pend.isNew) { it.newLect = pend; it.creates.push('محاضر'); } else it.notes.push('المحاضر لم يسجّل دخوله بعد — يُربط تلقائيًا عند أول دخول.');
+    } else if (it.status !== 'err') fail(isMail ? 'المحاضر غير مسجَّل. فعّل «إنشاء العناصر الناقصة تلقائيًا» أو أضفه من «الإدارة».' : 'المحاضر غير مسجَّل. أضفه من «الإدارة» أولًا (أو اكتب بريده الإلكتروني ليُضاف تلقائيًا).');
     if (it.status === 'err') return it;
-    var key = [nk(cpath), nk(clevel), nk(ccourse), it.lecId].join('|') + '|' + (it.term || '*');
+    var lk = it.lecId || 'p:' + it.pendingEmail;
+    var key = [nk(cpath), nk(clevel), nk(ccourse), lk].join('|') + '|' + (it.term || '*');
     if (have[key]) { it.status = 'dup'; it.notes.push('مربوط بالفعل.'); }
     else if (seen[key]) { it.status = 'dup'; it.notes.push('مكرر داخل الملف.'); }
     else { seen[key] = 1; if (it.creates.length) { it.status = 'new'; it.notes.push('سيُنشأ: ' + it.creates.join('، ')); } else it.notes.push('جاهز'); }
@@ -1843,7 +1878,7 @@ $('im-go').onclick = async function () {
   var items = imAnalyze().filter(function (i) { return i.status === 'ok' || i.status === 'new'; });
   if (!items.length) return;
   var btn = $('im-go'); btn.disabled = true;
-  var cnt = { d: 0, l: 0, c: 0 }, linked = 0, failed = [];
+  var cnt = { d: 0, l: 0, c: 0 }, linked = 0, failed = []; imNewLect = {};
   for (var k = 0; k < items.length; k++) {
     var it = items[k];
     msg('im-msg', 'جارٍ الاستيراد… ' + (k + 1) + ' / ' + items.length);
@@ -1860,7 +1895,11 @@ $('im-go').onclick = async function () {
         var rc = await sb.from('courses').insert({ name: it.course, code: it.code || '', department_id: null }).select('id,name,code,department_id').single();
         if (rc.error) throw rc.error; courses.push(rc.data); cr = rc.data; cnt.c++;
       }
-      var ri = await sb.from('subjects').insert({ course_id: cr.id, level_id: lv.id, department_id: deptId, lecturer_id: it.lecId, term: it.term || null });
+      if (it.newLect && !(imNewLect || (imNewLect = {}))[it.pendingEmail]) {
+        var ra = await sb.from('allowed_users').upsert({ email: it.pendingEmail, full_name: it.newLect.full_name, role: 'lecturer', department_id: null });
+        if (ra.error) throw ra.error; imNewLect[it.pendingEmail] = 1;
+      }
+      var ri = await sb.from('subjects').insert({ course_id: cr.id, level_id: lv.id, department_id: deptId, lecturer_id: it.lecId || null, pending_email: it.lecId ? null : it.pendingEmail, term: it.term || null });
       if (ri.error) throw ri.error;
       linked++;
     } catch (e) { failed.push('صف ' + it.n + ': ' + assignErr(e)); }
