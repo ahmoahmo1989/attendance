@@ -352,6 +352,8 @@ catch(e){document.documentElement.dataset.theme='azhar';}
           <div><label for="f-dept">القسم</label><select id="f-dept"></select></div>
           <div><label for="f-level">الفرقة</label><select id="f-level"></select></div>
         </div>
+        <label for="f-term">الفصل الدراسي</label>
+        <select id="f-term"><option value="">— اختر الفصل —</option><option value="الفصل الدراسي الأول">الفصل الدراسي الأول</option><option value="الفصل الدراسي الثاني">الفصل الدراسي الثاني</option></select>
         <label for="f-subject">المادة</label>
         <select id="f-subject"></select>
         <p class="hint" id="catalog-hint" hidden></p>
@@ -448,6 +450,16 @@ catch(e){document.documentElement.dataset.theme='azhar';}
       <h2 data-ic="chart">تقرير حضور مادة</h2>
       <label for="r-subject">المادة</label>
       <select id="r-subject"></select>
+      <div class="row">
+        <div><label for="r-from">من تاريخ</label><input id="r-from" type="date"></div>
+        <div><label for="r-to">إلى تاريخ</label><input id="r-to" type="date"></div>
+      </div>
+      <div class="subnav" id="r-quick" style="margin:10px 0 0">
+        <button type="button" data-q="" class="on" data-ic="calendar">كل المدة</button>
+        <button type="button" data-q="7">آخر 7 أيام</button>
+        <button type="button" data-q="30">آخر 30 يومًا</button>
+        <button type="button" data-q="month">هذا الشهر</button>
+      </div>
       <p><button id="r-go" data-ic="chart" class="primary">عرض التقرير</button></p>
       <div id="rep-msg" class="msg" hidden></div>
       <div id="rep-box" hidden>
@@ -456,6 +468,7 @@ catch(e){document.documentElement.dataset.theme='azhar';}
           <div class="stat" style="--tc:#7c3aed"><span class="sico"><i class="ico" data-ic="calendar"></i></span><div><b id="rep-sessions">0</b><span>محاضرة</span></div></div>
           <div class="stat" style="--tc:#0891b2"><span class="sico"><i class="ico" data-ic="percent"></i></span><div><b id="rep-avg">0%</b><span>متوسط الحضور</span></div></div>
         </div>
+        <p class="hint" id="rep-range" style="margin:0 0 8px"></p>
         <p><button id="r-xlsx" type="button" data-ic="download">تحميل Excel</button></p>
         <div class="scroll"><table><thead><tr><th>رقم الجلوس</th><th>الاسم</th><th>الحضور</th><th>الغياب</th><th>النسبة</th></tr></thead><tbody id="rep-rows"></tbody></table></div>
         <p class="hint">الصفوف الحمراء: نسبة الحضور أقل من 75%.</p>
@@ -478,7 +491,7 @@ catch(e){document.documentElement.dataset.theme='azhar';}
       <label class="check" style="margin-top:12px"><input id="im-create" type="checkbox" checked> إنشاء الأقسام والفرق والمواد الناقصة تلقائيًا</label>
       <div id="im-preview" hidden>
         <p class="hint" id="im-summary"></p>
-        <div class="scroll" style="max-height:420px;overflow:auto"><table><thead><tr><th>#</th><th>القسم</th><th>الفرقة</th><th>المادة</th><th>المحاضر</th><th>الحالة</th></tr></thead><tbody id="im-rows"></tbody></table></div>
+        <div class="scroll" style="max-height:420px;overflow:auto"><table><thead><tr><th>#</th><th>القسم</th><th>الفرقة</th><th>الفصل</th><th>المادة</th><th>المحاضر</th><th>الحالة</th></tr></thead><tbody id="im-rows"></tbody></table></div>
         <button id="im-go" data-ic="upload" class="primary" type="button">استيراد</button>
       </div>
       <div id="im-msg" class="msg" hidden></div>
@@ -490,6 +503,8 @@ catch(e){document.documentElement.dataset.theme='azhar';}
         <div><label for="as-dept">القسم</label><select id="as-dept"></select></div>
         <div><label for="as-level">الفرقة</label><select id="as-level"></select></div>
       </div>
+      <label for="as-term">الفصل الدراسي</label>
+      <select id="as-term"><option value="">— اختر الفصل —</option><option value="الفصل الدراسي الأول">الفصل الدراسي الأول</option><option value="الفصل الدراسي الثاني">الفصل الدراسي الثاني</option></select>
       <div class="row">
         <div><label for="as-course">المادة</label><select id="as-course"></select></div>
         <div><label for="as-lect">المحاضر</label><select id="as-lect"></select></div>
@@ -504,7 +519,7 @@ catch(e){document.documentElement.dataset.theme='azhar';}
         <div><label for="as-flect">تصفية بالمحاضر</label><select id="as-flect"></select></div>
       </div>
       <p class="hint" id="as-count"></p>
-      <div class="scroll"><table><thead><tr><th>القسم</th><th>الفرقة</th><th>المادة</th><th>المحاضر</th><th>الطلاب</th></tr></thead><tbody id="as-rows"></tbody></table></div>
+      <div class="scroll"><table><thead><tr><th>القسم</th><th>الفرقة</th><th>الفصل</th><th>المادة</th><th>المحاضر</th><th>الطلاب</th></tr></thead><tbody id="as-rows"></tbody></table></div>
     </div>
     <div class="card" data-sub="courses">
       <h2 data-ic="book">كتالوج المواد</h2>
@@ -753,7 +768,7 @@ document.addEventListener('click', function (e) {
   var b = e.target.closest('button[data-tab], button[data-nav], button[data-go]'); if (!b) return;
   if (b.dataset.tab) {
     var tb = b.dataset.tab, nd = NAV.filter(function (x) { return x.id === tb; })[0];
-    if (nd.subs && tb === curTab && (tb !== 'dash' || curSub.dash === 'overview')) {   // ضغطة ثانية على نفس القسم: طيّ/فتح قائمته الفرعية
+    if (nd.subs && tb === curTab) {   // ضغطة ثانية على نفس القسم: طيّ/فتح قائمته الفرعية
       collapsed[tb] = !collapsed[tb];
       $('subs-' + tb).classList.toggle('open', !collapsed[tb]);
       b.setAttribute('aria-expanded', collapsed[tb] ? 'false' : 'true');
@@ -868,7 +883,7 @@ function fillDepts() {
 
 async function loadSubjects() {
   var r = await sb.from('subjects')
-    .select('id,name,level,lecturer_id,lecturer_name,archived,department_id,course_id,level_id,subject_students(count)')
+    .select('id,name,level,term,lecturer_id,lecturer_name,archived,department_id,course_id,level_id,subject_students(count)')
     .order('created_at', { ascending: false });
   if (r.error) { $('subjects-list').textContent = errText(r.error); return; }
   subjects = r.data || [];
@@ -879,7 +894,7 @@ async function loadSubjects() {
     var h = el('h3', '', s.name); if (s.archived) h.appendChild(el('span', 'tag', 'مؤرشفة'));
     c.appendChild(h);
     var cnt = (s.subject_students && s.subject_students[0] && s.subject_students[0].count) || 0;
-    c.appendChild(el('div', 'meta', [s.level, deptPath(s.department_id), s.lecturer_name].filter(Boolean).join(' — ') + ' · ' + cnt + ' طالب'));
+    c.appendChild(el('div', 'meta', [s.level, s.term, deptPath(s.department_id), s.lecturer_name].filter(Boolean).join(' — ') + ' · ' + cnt + ' طالب'));
     var acts = el('div', 'actions');
     var b1 = el('button', '', 'إضافة طلاب'); b1.onclick = function () { startAddMode(s); }; acts.appendChild(b1);
     var b2 = el('button', '', s.archived ? 'إلغاء الأرشفة' : 'أرشفة'); b2.onclick = async function () {
@@ -901,7 +916,7 @@ async function loadSubjects() {
   ['s-subject', 'r-subject'].forEach(function (id) {
     var sel = $(id), cur = sel.value; sel.innerHTML = '';
     subjects.filter(function (s) { return id === 'r-subject' || !s.archived; }).forEach(function (s) {
-      var o = el('option', '', s.name + ' — ' + s.level + (me.role === 'admin' ? ' (' + s.lecturer_name + ')' : '')); o.value = s.id; sel.appendChild(o);
+      var o = el('option', '', s.name + ' — ' + s.level + (s.term ? ' — ' + s.term : '') + (me.role === 'admin' ? ' (' + s.lecturer_name + ')' : '')); o.value = s.id; sel.appendChild(o);
     });
     if (cur) sel.value = cur;
   });
@@ -980,13 +995,13 @@ function resetRosterForm() {
   $('roster-title').textContent = 'إضافة مادة وكشف طلاب';
   $('roster-save').textContent = 'حفظ المادة والكشف';
   $('roster-cancel').hidden = true;
-  ['f-subject', 'f-level'].forEach(function (i) { $(i).value = ''; });
+  ['f-subject', 'f-level', 'f-term'].forEach(function (i) { $(i).value = ''; });
   fillCatalog();
 }
 function startAddMode(s) {
   resetRosterForm(); addToId = s.id;
   $('subject-fields').hidden = true;
-  $('roster-title').textContent = 'إضافة طلاب إلى: ' + s.name + ' — ' + s.level;
+  $('roster-title').textContent = 'إضافة طلاب إلى: ' + s.name + ' — ' + s.level + (s.term ? ' — ' + s.term : '');
   $('roster-save').textContent = 'إضافة الطلاب للكشف';
   $('roster-cancel').hidden = false;
   $('roster-card').scrollIntoView({ behavior: 'smooth' });
@@ -1019,10 +1034,11 @@ $('roster-save').onclick = async function () {
       var r = await saveStudents(addToId, students);
       text = 'تمت إضافة ' + r.added + ' طالب (الإجمالي ' + r.total + ')' + (r.duplicates ? ' — ' + r.duplicates + ' موجود مسبقًا وتم تجاهله' : '') + '.';
     } else {
-      var courseId = $('f-subject').value, levelId = $('f-level').value, deptId = $('f-dept').value;
+      var courseId = $('f-subject').value, levelId = $('f-level').value, deptId = $('f-dept').value, termV = $('f-term').value;
       if (!deptId || !levelId || !courseId) throw new Error('اختر القسم والفرقة والمادة من القوائم.');
+      if (!termV) throw new Error('اختر الفصل الدراسي.');
       var lecturer = me.role === 'admin' ? $('f-lecturer').value : me.id;
-      var ins = await sb.from('subjects').insert({ course_id: courseId, level_id: levelId, department_id: deptId, lecturer_id: lecturer }).select('id').single();
+      var ins = await sb.from('subjects').insert({ course_id: courseId, level_id: levelId, term: termV, department_id: deptId, lecturer_id: lecturer }).select('id').single();
       if (ins.error) throw ins.error;
       if (students.length) {
         var r2 = await saveStudents(ins.data.id, students);
@@ -1180,15 +1196,23 @@ $('m-go').onclick = async function () {
 };
 
 /* ============ التقارير ============ */
-var matrix = null, matrixSubject = null;
-$('r-go').onclick = async function () {
-  var id = $('r-subject').value;
-  if (!id) { msg('rep-msg', 'اختر المادة.', 'bad'); return; }
-  msg('rep-msg', 'جارٍ تحميل التقرير…'); show('rep-box', false);
-  var r = await sb.rpc('subject_matrix', { p_subject: id });
-  if (r.error) { msg('rep-msg', errText(r.error), 'bad'); return; }
+var matrix = null, matrixSubject = null, fullMatrix = null;
+function ymd(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+// يقصّ المصفوفة على المحاضرات الواقعة بين التاريخين (شاملين). label يبدأ بـ YYYY-MM-DD بتوقيت القاهرة
+function filterMatrix(m, from, to) {
+  var keep = [];
+  m.sessions.forEach(function (s, i) { var d = String(s.label).slice(0, 10); if ((!from || d >= from) && (!to || d <= to)) keep.push(i); });
+  return {
+    sessions: keep.map(function (i) { return m.sessions[i]; }),
+    students: m.students.map(function (st) { return { seat: st.seat, name: st.name, marks: keep.map(function (i) { return st.marks[i]; }) }; })
+  };
+}
+function renderReport() {
+  if (!fullMatrix) return;
+  var from = $('r-from').value, to = $('r-to').value;
+  if (from && to && from > to) { msg('rep-msg', 'تاريخ البداية بعد تاريخ النهاية.', 'bad'); return; }
   msg('rep-msg', '');
-  matrix = r.data; matrixSubject = subjects.filter(function (s) { return s.id === id; })[0];
+  matrix = filterMatrix(fullMatrix, from, to);
   var total = matrix.sessions.length, sumPct = 0;
   var tb = $('rep-rows'); tb.innerHTML = '';
   matrix.students.forEach(function (s) {
@@ -1202,7 +1226,31 @@ $('r-go').onclick = async function () {
   $('rep-students').textContent = matrix.students.length;
   $('rep-sessions').textContent = total;
   $('rep-avg').textContent = matrix.students.length && total ? (Math.round(sumPct * 10 / matrix.students.length) / 10) + '%' : '—';
+  var all = fullMatrix.sessions.length;
+  $('rep-range').textContent = (from || to)
+    ? 'المدة: ' + (from ? 'من ' + from : 'من البداية') + ' ' + (to ? 'إلى ' + to : 'إلى اليوم') + ' — ' + total + ' من ' + all + ' محاضرة.'
+    : 'كل المحاضرات (' + all + ').';
+  if (!total && all) msg('rep-msg', 'لا توجد محاضرات في هذه المدة.', 'bad');
   show('rep-box', true);
+}
+$('r-go').onclick = async function () {
+  var id = $('r-subject').value;
+  if (!id) { msg('rep-msg', 'اختر المادة.', 'bad'); return; }
+  msg('rep-msg', 'جارٍ تحميل التقرير…'); show('rep-box', false);
+  var r = await sb.rpc('subject_matrix', { p_subject: id });
+  if (r.error) { msg('rep-msg', errText(r.error), 'bad'); return; }
+  fullMatrix = r.data; matrixSubject = subjects.filter(function (s) { return s.id === id; })[0];
+  renderReport();
+};
+// فلتر المدة: تواريخ يدوية + اختصارات
+['r-from', 'r-to'].forEach(function (i) { $(i).onchange = function () { markQuick(''); renderReport(); }; });
+function markQuick(q) { [].forEach.call($('r-quick').children, function (b) { b.classList.toggle('on', b.dataset.q === q); }); }
+$('r-quick').onclick = function (e) {
+  var b = e.target.closest('button[data-q]'); if (!b) return;
+  var q = b.dataset.q, now = new Date(), from = '', to = '';
+  if (q === '7' || q === '30') { var d = new Date(now); d.setDate(d.getDate() - (+q - 1)); from = ymd(d); to = ymd(now); }
+  if (q === 'month') { from = ymd(new Date(now.getFullYear(), now.getMonth(), 1)); to = ymd(now); }
+  $('r-from').value = from; $('r-to').value = to; markQuick(q); renderReport();
 };
 
 $('r-xlsx').onclick = function () {
@@ -1222,7 +1270,7 @@ $('r-xlsx').onclick = function () {
   var blob = new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   var link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
-  link.download = 'حضور - ' + ((matrixSubject && matrixSubject.name) || 'مادة').replace(/[\\\/:*?"<>|]/g, '-') + '.xlsx';
+  link.download = 'حضور - ' + ((matrixSubject && matrixSubject.name) || 'مادة').replace(/[\\\/:*?"<>|]/g, '-') + (($('r-from').value || $('r-to').value) ? ' (' + ($('r-from').value || 'البداية') + ' إلى ' + ($('r-to').value || 'اليوم') + ')' : '') + '.xlsx';
   document.body.appendChild(link); link.click(); link.remove();
   setTimeout(function () { URL.revokeObjectURL(link.href); }, 4000);
 };
@@ -1349,7 +1397,7 @@ function rateRow(title, meta, rate, thr, indent, onclick) {
 }
 
 function openReport(id) {
-  $('r-subject').value = id;
+  $('r-subject').value = id; $('r-from').value = ''; $('r-to').value = ''; markQuick('');
   document.querySelector('[data-tab="reports"]').click();
   $('r-go').click();
 }
@@ -1486,7 +1534,7 @@ var levels = [], courses = [];
 function assignErr(e) {
   var t = errText(e);
   if (/courses_dept_name_uq|levels_name_uq/i.test(t)) return 'موجود بالفعل في القائمة.';
-  if (/subjects_assignment_uq/i.test(t)) return 'هذه المادة مربوطة بالفعل بنفس المحاضر في نفس القسم والفرقة.';
+  if (/subjects_assignment_uq/i.test(t)) return 'هذه المادة مربوطة بالفعل بنفس المحاضر في نفس القسم والفرقة والفصل.';
   if (/foreign key|23503/i.test(t + ((e && e.code) || ''))) return 'لا يمكن الحذف لأنه مستخدم في مواد مسنَدة. احذف الربط أولًا.';
   if (/duplicate key/i.test(t)) return 'موجود بالفعل.';
   return t;
@@ -1591,6 +1639,7 @@ function renderLists() {
     var cnt = (s.subject_students && s.subject_students[0] && s.subject_students[0].count) || 0;
     tr.appendChild(el('td', '', deptPath(s.department_id) || '—'));
     tr.appendChild(el('td', '', s.level));
+    tr.appendChild(el('td', '', (s.term || '—').replace('الفصل الدراسي ', '')));
     var tdn = el('td', '', s.name); if (s.archived) tdn.appendChild(el('span', 'tag', 'مؤرشفة')); tr.appendChild(tdn);
     var td = el('td'), sel = el('select');
     sel.setAttribute('aria-label', 'المحاضر');
@@ -1631,9 +1680,10 @@ $('c-add').onclick = async function () {
   if (r.error) msg('l-msg', assignErr(r.error), 'bad'); else { $('c-name').value = ''; $('c-code').value = ''; msg('l-msg', ''); await loadLists(); }
 };
 $('as-add').onclick = async function () {
-  var dept = $('as-dept').value, lv = $('as-level').value, co = $('as-course').value, lec = $('as-lect').value;
+  var dept = $('as-dept').value, lv = $('as-level').value, co = $('as-course').value, lec = $('as-lect').value, tm = $('as-term').value;
   if (!dept || !lv || !co || !lec) { msg('as-msg', 'اختر القسم والفرقة والمادة والمحاضر.', 'bad'); return; }
-  var r = await sb.from('subjects').insert({ course_id: co, level_id: lv, department_id: dept, lecturer_id: lec });
+  if (!tm) { msg('as-msg', 'اختر الفصل الدراسي.', 'bad'); return; }
+  var r = await sb.from('subjects').insert({ course_id: co, level_id: lv, term: tm, department_id: dept, lecturer_id: lec });
   if (r.error) { msg('as-msg', assignErr(r.error), 'bad'); return; }
   msg('as-msg', 'تم الربط. يجد المحاضر المادة في «موادي» ويضيف كشف الطلاب.', 'ok');
   await loadLists();
@@ -1648,24 +1698,24 @@ var imRows = [];
 
 function imParse(rows) {
   rows = rows.filter(function (r) { return (r || []).some(function (c) { return cellStr(c) !== ''; }); });
-  var col = { dept: 0, level: 1, course: 2, lecturer: 3, code: 4 }, start = 0;
+  var col = { dept: 0, level: 1, course: 2, lecturer: 3, code: 4, term: -1 }, start = 0;
   if (rows.length) {
     var m = {};
     rows[0].forEach(function (c, i) {
       var x = nk(cellStr(c));
       if (x.indexOf('القسم') === 0) m.dept = i; else if (x.indexOf('الفرقه') === 0) m.level = i;
       else if (x.indexOf('الماده') === 0) m.course = i; else if (x.indexOf('المحاضر') === 0) m.lecturer = i;
-      else if (x.indexOf('الكود') === 0 || x === 'code') m.code = i;
+      else if (x.indexOf('الكود') === 0 || x === 'code') m.code = i; else if (x.indexOf('الفصل') === 0) m.term = i;
     });
     var found = ['dept', 'level', 'course', 'lecturer'].filter(function (k) { return m[k] != null; });
     if (found.length) {
       if (found.length < 4) throw new Error('عنوان الأعمدة ناقص. المطلوب: القسم، الفرقة، المادة، المحاضر.');
-      col = { dept: m.dept, level: m.level, course: m.course, lecturer: m.lecturer, code: m.code == null ? -1 : m.code }; start = 1;
+      col = { dept: m.dept, level: m.level, course: m.course, lecturer: m.lecturer, code: m.code == null ? -1 : m.code, term: m.term == null ? -1 : m.term }; start = 1;
     }
   }
   return rows.slice(start).map(function (r, i) {
     function g(k) { return k < 0 ? '' : cellStr(r[k]); }
-    return { n: i + 1, dept: g(col.dept), level: g(col.level), course: g(col.course), lecturer: g(col.lecturer), code: g(col.code) };
+    return { n: i + 1, dept: g(col.dept), level: g(col.level), course: g(col.course), lecturer: g(col.lecturer), code: g(col.code), term: g(col.term) };
   });
 }
 
@@ -1675,11 +1725,17 @@ function imAnalyze() {
   var lecName = {}, lecMail = {};
   profiles.filter(function (p) { return p.active; }).forEach(function (p) { var k = nk(p.full_name); (lecName[k] = lecName[k] || []).push(p); lecMail[String(p.email || '').toLowerCase()] = p; });
   var have = {}, seen = {};
-  subjects.forEach(function (s) { if (!s.archived) have[[nk(deptPath(s.department_id)), nk(s.level), nk(s.name), s.lecturer_id].join('|')] = 1; });
+  subjects.forEach(function (s) { if (!s.archived) var hb = [nk(deptPath(s.department_id)), nk(s.level), nk(s.name), s.lecturer_id].join('|'); have[hb + '|' + (s.term || '')] = 1; have[hb + '|*'] = 1; });
   return imRows.map(function (r) {
-    var it = { n: r.n, dept: r.dept, level: r.level, course: r.course, lecturer: r.lecturer, code: r.code, status: 'ok', notes: [], creates: [] };
+    var it = { n: r.n, dept: r.dept, level: r.level, course: r.course, lecturer: r.lecturer, code: r.code, term: '', status: 'ok', notes: [], creates: [] };
     function fail(t) { it.status = 'err'; it.notes.push(t); }
     if (!r.dept || !r.level || !r.course || !r.lecturer) { fail('بيانات ناقصة في الصف.'); return it; }
+    if (r.term) {
+      var tk = nk(r.term);
+      if (tk.indexOf('اول') >= 0 || /(^|[^0-9])1([^0-9]|$)/.test(tk)) it.term = 'الفصل الدراسي الأول';
+      else if (tk.indexOf('ثاني') >= 0 || tk.indexOf('تاني') >= 0 || /(^|[^0-9])2([^0-9]|$)/.test(tk)) it.term = 'الفصل الدراسي الثاني';
+      else { fail('الفصل غير مفهوم (اكتب: الأول أو الثاني).'); return it; }
+    }
     var segs = splitPath(r.dept), d = null, cpath = segs.join(' / ');
     if (segs.length > 1) d = byPath[nk(cpath)] || null;
     else { var c = byName[nk(segs[0])] || []; if (c.length > 1) { fail('اسم القسم متكرر؛ اكتب مساره كاملًا.'); } else d = c[0] || null; }
@@ -1695,7 +1751,7 @@ function imAnalyze() {
     else { var ls = lecName[nk(r.lecturer)] || []; if (ls.length > 1) fail('اسم المحاضر متكرر؛ استخدم بريده الإلكتروني.'); else lec = ls[0] || null; }
     if (lec) it.lecId = lec.id; else if (it.status !== 'err') fail('المحاضر غير مسجَّل أو غير مفعّل. أضفه من «الإدارة» ثم يسجّل دخوله.');
     if (it.status === 'err') return it;
-    var key = [nk(cpath), nk(clevel), nk(ccourse), it.lecId].join('|');
+    var key = [nk(cpath), nk(clevel), nk(ccourse), it.lecId].join('|') + '|' + (it.term || '*');
     if (have[key]) { it.status = 'dup'; it.notes.push('مربوط بالفعل.'); }
     else if (seen[key]) { it.status = 'dup'; it.notes.push('مكرر داخل الملف.'); }
     else { seen[key] = 1; if (it.creates.length) { it.status = 'new'; it.notes.push('سيُنشأ: ' + it.creates.join('، ')); } else it.notes.push('جاهز'); }
@@ -1711,7 +1767,7 @@ function imRender() {
   items.forEach(function (it) {
     cnt[it.status]++;
     var tr = el('tr', it.status === 'err' ? 'low' : '');
-    [String(it.n), it.dept, it.level, it.course, it.lecturer, (it.status === 'err' ? '✕ ' : it.status === 'dup' ? '• ' : '✓ ') + it.notes.join(' ')].forEach(function (v) { tr.appendChild(el('td', '', v)); });
+    [String(it.n), it.dept, it.level, (it.term || '').replace('الفصل الدراسي ', '') || '—', it.course, it.lecturer, (it.status === 'err' ? '✕ ' : it.status === 'dup' ? '• ' : '✓ ') + it.notes.join(' ')].forEach(function (v) { tr.appendChild(el('td', '', v)); });
     tb.appendChild(tr);
   });
   var go = cnt.ok + cnt.new;
@@ -1746,9 +1802,9 @@ $('im-paste').oninput = function () {
 };
 $('im-create').onchange = imRender;
 $('im-template').onclick = function () {
-  downloadXlsx([['القسم', 'الفرقة', 'المادة', 'المحاضر', 'الكود (اختياري)'],
-    ['كلية التربية / تكنولوجيا التعليم', 'الفرقة الرابعة', 'البرمجيات التعليمية', 'د/ أحمد محمد', 'ED401'],
-    ['كلية التربية / تكنولوجيا التعليم', 'الفرقة الأولى', 'التصميم التعليمي الشامل', 'د/ منى علي', 'ED101']], 'نموذج الربط', 'نموذج استيراد المواد والمحاضرين');
+  downloadXlsx([['القسم', 'الفرقة', 'المادة', 'المحاضر', 'الكود (اختياري)', 'الفصل (اختياري)'],
+    ['كلية التربية / تكنولوجيا التعليم', 'الفرقة الرابعة', 'البرمجيات التعليمية', 'د/ أحمد محمد', 'ED401', 'الأول'],
+    ['كلية التربية / تكنولوجيا التعليم', 'الفرقة الأولى', 'التصميم التعليمي الشامل', 'د/ منى علي', 'ED101', 'الثاني']], 'نموذج الربط', 'نموذج استيراد المواد والمحاضرين');
 };
 
 async function imEnsureDept(segs, cnt) {
@@ -1786,7 +1842,7 @@ $('im-go').onclick = async function () {
         var rc = await sb.from('courses').insert({ name: it.course, code: it.code || '', department_id: null }).select('id,name,code,department_id').single();
         if (rc.error) throw rc.error; courses.push(rc.data); cr = rc.data; cnt.c++;
       }
-      var ri = await sb.from('subjects').insert({ course_id: cr.id, level_id: lv.id, department_id: deptId, lecturer_id: it.lecId });
+      var ri = await sb.from('subjects').insert({ course_id: cr.id, level_id: lv.id, department_id: deptId, lecturer_id: it.lecId, term: it.term || null });
       if (ri.error) throw ri.error;
       linked++;
     } catch (e) { failed.push('صف ' + it.n + ': ' + assignErr(e)); }
