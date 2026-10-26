@@ -365,6 +365,9 @@ catch(e){document.documentElement.dataset.theme='azhar';}
       <button type="button" class="opt on" data-pane="subjects-card" title="المواد الحالية"><i class="ico" data-ic="folder"></i><span>موادي</span></button>
       <button type="button" class="opt" id="sub-tab-add" data-pane="roster-card" title="إضافة مادة وكشف طلاب"><i class="ico" data-ic="plus"></i><span>إضافة مادة</span></button>
     </div>
+    <div class="opts" id="adm-sub-opts" style="grid-template-columns:1fr;margin-top:0" hidden>
+      <label class="opt" id="adm-lect-opt" style="flex-direction:row;justify-content:flex-start;gap:12px;min-height:0;padding:12px 14px;text-align:start" title="عند التفعيل يستطيع كل محاضر إضافة مواد لنفسه. أوقفه عند عدم الحاجة."><input id="s-lect-add" type="checkbox"><i class="ico" data-ic="user-plus"></i><span>السماح للمحاضرين بإضافة مواد</span></label>
+    </div>
     <div class="card" id="roster-card" hidden>
       <h2 id="roster-title" data-ic="file">إضافة مادة وكشف طلاب</h2>
       <div id="subject-fields">
@@ -754,6 +757,7 @@ async function afterSignIn() {
   $('f-lecturer-box').hidden = me.role !== 'admin';
   show('view-login', false); show('view-app', true);
   await loadAll();
+  await loadAppSettings();
   resetRosterForm();
 }
 
@@ -1149,7 +1153,7 @@ function resetRosterForm() {
   $('roster-cancel').hidden = true;
   ['f-subject', 'f-level', 'f-term'].forEach(function (i) { $(i).value = ''; });
   fillCatalog();
-  $('sub-tab-add').hidden = !(me && me.role === 'admin');   // المحاضر لا يضيف مواد: «إضافة مادة» للمدير فقط
+  $('sub-tab-add').hidden = !canAddSubjects();   // «إضافة مادة»: للمدير دائمًا، وللمحاضر فقط لو فعّل المدير الخيار
   showSubPane('subjects-card');
 }
 function startAddMode(s) {
@@ -1277,6 +1281,26 @@ function showSessPane(id) {
   [].forEach.call(document.querySelectorAll('#sess-tabs .opt'), function (b) { b.classList.toggle('on', b.dataset.pane === id); });
 }
 [].forEach.call(document.querySelectorAll('#sess-tabs .opt'), function (b) { b.onclick = function () { showSessPane(b.dataset.pane); }; });
+
+/* خيار المدير: السماح للمحاضرين بإضافة مواد */
+var lectAddOn = false;
+function canAddSubjects() { return !!(me && (me.role === 'admin' || lectAddOn)); }
+async function loadAppSettings() {
+  var r = await sb.from('app_settings').select('lecturers_add_subjects').maybeSingle();
+  lectAddOn = !!(r.data && r.data.lecturers_add_subjects);
+  var admin = !!(me && me.role === 'admin');
+  $('adm-sub-opts').hidden = !admin;
+  $('s-lect-add').checked = lectAddOn; $('adm-lect-opt').classList.toggle('on', lectAddOn);
+  $('s-lect-add').disabled = !!r.error;
+  if (r.error && admin) msg('sub-flash', /app_settings/.test(r.error.message || '') ? 'شغّل ملف lecturers_add_subjects.sql في Supabase لتفعيل هذا الخيار.' : errText(r.error), 'bad');
+}
+$('s-lect-add').onchange = async function () {
+  var on = this.checked, box = this;
+  var r = await sb.rpc('set_lecturers_add_subjects', { p_on: on });
+  if (r.error) { box.checked = !on; msg('sub-flash', errText(r.error), 'bad'); return; }
+  lectAddOn = on; $('adm-lect-opt').classList.toggle('on', on);
+  msg('sub-flash', on ? 'تم السماح للمحاضرين بإضافة مواد (يظهر لهم بعد تحديث الصفحة).' : 'تم إيقاف إضافة المواد للمحاضرين.', 'ok');
+};
 
 /* أيقونات المواد وكشوف الطلاب: موادي / إضافة مادة */
 function showSubPane(id) {
