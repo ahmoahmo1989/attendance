@@ -401,6 +401,7 @@ catch(e){document.documentElement.dataset.theme='azhar';}
         </select>
         <label class="check"><input id="s-useloc" type="checkbox" checked> التحقق من وجود الطالب داخل المدرج (بالموقع)</label>
         <label class="check" style="margin-top:12px"><input id="s-blockdev" type="checkbox"> منع تسجيل أكثر من طالب من نفس الجهاز</label>
+        <label class="check" style="margin-top:12px"><input id="s-allowunreg" type="checkbox"> السماح بتسجيل حضور من ليس في الكشف (يكتب الطالب اسمه ورقم جلوسه)</label>
         <p class="hint" style="margin:4px 0 0">غير مفعّل افتراضيًا: يُسمح بالتسجيل لكن يظهر «مشتبه» في التقرير لتراجعه أنت.</p>
         <div id="loc-box">
           <div class="row">
@@ -612,6 +613,29 @@ catch(e){document.documentElement.dataset.theme='azhar';}
       </div>
       <p><button id="dv-save" data-ic="plus" class="primary" type="button">إضافة جهاز</button> <button id="dv-cancel" type="button" hidden>إلغاء التعديل</button></p>
       <div class="scroll"><table><thead><tr><th>رقم الجهاز</th><th>القاعة</th><th>IP</th><th>الموديل</th><th>آخر بصمة</th><th>الحالة</th><th></th></tr></thead><tbody id="dv-rows"></tbody></table></div>
+    </div>
+    <div class="card" data-sub="halls">
+      <h2 data-ic="upload">استيراد بصمات الأجهزة (من تصدير ADTime)</h2>
+      <p class="hint" style="margin-top:0">في ADTime حمّل السجلات من الجهاز ثم صدّر «السجل الأصلي» أو «التقرير التفصيلي» إلى Excel وارفعه هنا. تتجاهل الصفحة البصمات المكررة، فلا مشكلة لو رفعت نفس الملف مرتين. تُسجَّل البصمة حضورًا فقط لو كانت قاعة جهازها فيها جلسة مفتوحة وقت البصمة (ولازم تكون القاعة مختارة عند بدء الجلسة)، وإلا تظهر في الملخص كبصمة بدون جلسة.</p>
+      <div id="imp-msg" class="msg" hidden></div>
+      <label for="imp-file">ملف Excel أو CSV</label>
+      <input id="imp-file" type="file" accept=".xlsx,.xls,.csv">
+      <div class="row">
+        <div><label for="imp-device">الجهاز (يُستخدم لو الملف بدون عمود رقم الجهاز)</label><select id="imp-device"></select></div>
+        <div><label for="imp-method">تحويل كود الطالب</label>
+          <select id="imp-method">
+            <option value="auto">تلقائي (الأنسب لكشوفك)</option>
+            <option value="strip">حذف الأصفار من اليسار</option>
+            <option value="last8">آخر 8 أرقام بعد حذف الأصفار</option>
+            <option value="asis">كما هو</option>
+          </select></div>
+      </div>
+      <div id="imp-preview" hidden>
+        <ul class="plain" id="imp-sum"></ul>
+        <div class="scroll"><table><thead><tr><th>الكود في الملف</th><th>رقم الجلوس بعد التحويل</th><th>الجهاز</th><th>الوقت (القاهرة)</th></tr></thead><tbody id="imp-rows"></tbody></table></div>
+        <button id="imp-go" data-ic="upload" class="primary" type="button">استيراد البصمات</button>
+      </div>
+      <ul class="plain" id="imp-res"></ul>
     </div>
   </section>
    </div>
@@ -1116,7 +1140,8 @@ $('start').onclick = async function () {
   var r = await sb.rpc('start_session', {
     p_subject: $('s-subject').value, p_minutes: parseInt($('s-minutes').value, 10), p_mode: $('s-mode').value,
     p_lat: useLoc && isFinite(lat) ? lat : null, p_lng: useLoc && isFinite(lng) ? lng : null, p_radius: radius,
-    p_block_dup: $('s-blockdev').checked
+    p_block_dup: $('s-blockdev').checked,
+    p_allow_unreg: $('s-allowunreg').checked
   });
   $('start').disabled = false;
   if (r.error) { msg('sess-msg', errText(r.error), 'bad'); return; }
@@ -1432,7 +1457,7 @@ async function loadHallsAdmin() {
   var err = he || dv.error;
   if (err) msg('h-msg', 'تعذّر تحميل القاعات والأجهزة: ' + errText(err) + ' — تأكد من تشغيل ملفات SQL الخاصة بالقاعات في Supabase.', 'bad');
   else msg('h-msg', '');
-  renderHalls(); renderDevices();
+  renderHalls(); renderDevices(); fillImpDevices();
 }
 
 function renderHalls() {
@@ -1516,6 +1541,239 @@ $('dv-save').onclick = async function () {
   if (r.error) { msg('dv-msg', /duplicate/i.test(errText(r.error)) ? 'رقم الجهاز مسجَّل بالفعل.' : errText(r.error), 'bad'); return; }
   var wasEdit = !!editDeviceId;
   resetDeviceForm(); msg('dv-msg', wasEdit ? 'تم حفظ التعديل.' : 'تمت إضافة الجهاز.', 'ok'); loadHallsAdmin();
+};
+
+/* ============ استيراد بصمات الأجهزة (تصدير ADTime) ============ */
+/* IMPORT-PURE-START */
+var cairoFmt = null;
+function cairoOffsetMin(utcMs) {
+  if (!cairoFmt) cairoFmt = new Intl.DateTimeFormat('en-US', { timeZone: 'Africa/Cairo', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  var p = {}; cairoFmt.formatToParts(new Date(utcMs)).forEach(function (x) { p[x.type] = x.value; });
+  return (Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second) - utcMs) / 60000;
+}
+// وقت بتوقيت القاهرة (مع التوقيت الصيفي) → لحظة UTC بالميلي ثانية
+function cairoToUtcMs(y, mo, d, h, mi, s) {
+  var naive = Date.UTC(y, mo - 1, d, h, mi, s);
+  var off = cairoOffsetMin(naive - 2 * 3600000), ms = naive - off * 60000, off2 = cairoOffsetMin(ms);
+  if (off2 !== off) ms = naive - off2 * 60000;
+  return ms;
+}
+function latin(s) {
+  return String(s == null ? '' : s)
+    .replace(/[٠-٩]/g, function (d) { return String(d.charCodeAt(0) - 0x0660); })
+    .replace(/[۰-۹]/g, function (d) { return String(d.charCodeAt(0) - 0x06F0); });
+}
+function parseTimeStr(s) {
+  var m = latin(s).trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(am|pm|ص|م)?$/i);
+  if (!m) return null;
+  var h = +m[1], mi = +m[2], se = m[3] ? +m[3] : 0, ap = (m[4] || '').toLowerCase();
+  if (ap === 'pm' || ap === 'م') { if (h < 12) h += 12; } else if (ap === 'am' || ap === 'ص') { if (h === 12) h = 0; }
+  if (h > 23 || mi > 59 || se > 59) return null;
+  return [h, mi, se];
+}
+function splitDate(s) {
+  var t = latin(s).trim(), m = t.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/);
+  if (m) return { y: +m[1], mo: +m[2], d: +m[3], fixed: true };
+  m = t.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})$/);
+  if (m) { var y = +m[3]; if (y < 100) y += 2000; return { a: +m[1], b: +m[2], y: y }; }
+  return null;
+}
+function hdrIdx(hdr, re) { for (var i = 0; i < hdr.length; i++) if (re.test(hdr[i])) return i; return -1; }
+
+// يقرأ تقرير ADTime التفصيلي (الوقت 1..12) أو سجل البصمات (صف لكل بصمة)
+function parsePunchSheet(rows) {
+  var reCode = /كود|رقم الموظف|رقم المستخدم|رقم الطالب|user\s*id|employee|^id$/i;
+  var hi = -1, hdr = [], r, h;
+  for (r = 0; r < Math.min(rows.length, 15); r++) {
+    h = (rows[r] || []).map(cellStr);
+    if (h.some(function (c) { return reCode.test(c); }) && h.some(function (c) { return /تاريخ|date|وقت|time/i.test(c); })) { hi = r; hdr = h; break; }
+  }
+  if (hi < 0) throw new Error('لم أجد صف العناوين. المتوقع أعمدة مثل: كود الموظف، تاريخ، الوقت 1… أو سجل بصمات فيه الكود والوقت.');
+  var cCode = hdrIdx(hdr, reCode);
+  var cDev = hdrIdx(hdr, /رقم الماكينة|رقم الجهاز|^الماكينة$|^الجهاز$|machine|device/i);
+  var timeCols = []; hdr.forEach(function (c, i) { if (/^(الوقت|time)\s*\d+$/i.test(c)) timeCols.push(i); });
+  var cDT = hdrIdx(hdr, /(تاريخ|date).*(وقت|time)|(وقت|time).*(تاريخ|date)|وقت (البصمة|التسجيل|الحضور)|^datetime$/i);
+  var cDate = hdrIdx(hdr, /^(التاريخ|تاريخ|date)$/i);
+  var cTime = hdrIdx(hdr, /^(الوقت|وقت|time)$/i);
+  var kind = (timeCols.length && cDate >= 0) ? 'wide' : (cDT >= 0 ? 'datetime' : ((cDate >= 0 && cTime >= 0) ? 'split' : ''));
+  if (!kind) throw new Error('لم أتعرف على أعمدة التاريخ والوقت. العناوين الموجودة: ' + hdr.filter(Boolean).join(' | '));
+  var items = [], skipped = 0, a12 = 0, b12 = 0;
+  function add(dev, code, sd, tm) {
+    if (!sd || !tm) { skipped++; return; }
+    if (!sd.fixed) { if (sd.a > 12) a12++; if (sd.b > 12) b12++; }
+    items.push({ dev: dev, code: code, sd: sd, tm: tm });
+  }
+  for (r = hi + 1; r < rows.length; r++) {
+    var row = rows[r] || [], code = latin(cellStr(row[cCode])).replace(/\s+/g, '');
+    if (!code) continue;
+    var dev = null;
+    if (cDev >= 0) { var dn = parseInt(latin(cellStr(row[cDev])), 10); if (isFinite(dn) && dn > 0) dev = dn; }
+    if (kind === 'wide') {
+      var sdw = splitDate(row[cDate]);
+      timeCols.forEach(function (c) {
+        var v = cellStr(row[c]); if (!v) return;
+        add(dev, code, sdw, parseTimeStr(v));
+      });
+    } else if (kind === 'datetime') {
+      var v2 = latin(cellStr(row[cDT])).replace(/^(\d{4}-\d{2}-\d{2})T/, '$1 ').trim(); if (!v2) continue;
+      var parts = v2.split(/\s+/);
+      add(dev, code, splitDate(parts[0]), parseTimeStr(parts.slice(1).join(' ')));
+    } else {
+      var v3 = cellStr(row[cDate]), v4 = cellStr(row[cTime]); if (!v3 && !v4) continue;
+      add(dev, code, splitDate(v3), parseTimeStr(v4));
+    }
+  }
+  return { kind: kind, items: items, skipped: skipped, dmy: a12 > 0 && b12 === 0, conflict: a12 > 0 && b12 > 0, hasDevCol: cDev >= 0 };
+}
+
+// تحويل كود ADTime (10 أرقام بأصفار في الأول) إلى رقم الجلوس
+var IMP_METHODS = {
+  strip: function (c) { return normSeat(c).replace(/^0+(?=.)/, ''); },
+  last8: function (c) { var s = normSeat(c).replace(/^0+(?=.)/, ''); return s.length > 8 ? s.slice(-8) : s; },
+  asis:  function (c) { return normSeat(c); }
+};
+var IMP_ORDER = ['strip', 'last8', 'asis'];
+
+function buildPunches(parsed, method, fallbackDev) {
+  var fn = IMP_METHODS[method] || IMP_METHODS.strip, seen = {}, out = [], noDev = 0, bad = 0;
+  parsed.items.forEach(function (it) {
+    var dev = it.dev != null ? it.dev : fallbackDev;
+    if (!(dev > 0)) { noDev++; return; }
+    var sd = it.sd;
+    var mo = sd.fixed ? sd.mo : (parsed.dmy ? sd.b : sd.a), d = sd.fixed ? sd.d : (parsed.dmy ? sd.a : sd.b);
+    if (mo < 1 || mo > 12 || d < 1 || d > 31) { bad++; return; }
+    var no = fn(it.code); if (!no) { bad++; return; }
+    var ms = cairoToUtcMs(sd.y, mo, d, it.tm[0], it.tm[1], it.tm[2]);
+    var key = dev + '|' + no + '|' + ms;
+    if (seen[key]) return; seen[key] = 1;
+    out.push({ device_no: dev, student_no: no, punched_at: new Date(ms).toISOString(), ms: ms, raw_code: it.code, source_row_id: key, source: 'adtime-xlsx' });
+  });
+  return { list: out, noDev: noDev, bad: bad };
+}
+/* IMPORT-PURE-END */
+
+var imp = null;
+var IMP_STATUS = {
+  matched: 'تم تسجيل الحضور',
+  no_device: 'جهاز غير معروف أو غير مفعّل أو بدون قاعة',
+  no_session: 'لا توجد جلسة في القاعة وقت البصمة',
+  not_in_roster: 'الطالب ليس في كشف مادة الجلسة',
+  error: 'خطأ أثناء المطابقة',
+  pending: 'قيد المعالجة'
+};
+var IMP_LABEL = { strip: 'حذف الأصفار من اليسار', last8: 'آخر 8 أرقام بعد حذف الأصفار', asis: 'كما هو' };
+
+function fillImpDevices() {
+  var s = $('imp-device'), cur = s.value; s.innerHTML = '';
+  var o0 = el('option', '', '— اختر الجهاز —'); o0.value = ''; s.appendChild(o0);
+  devices.forEach(function (d) { var o = el('option', '', d.device_no + ' — ' + hallName(d.hall_id)); o.value = d.device_no; s.appendChild(o); });
+  if (cur) s.value = cur; else if (devices.length === 1) s.value = String(devices[0].device_no);
+}
+
+// يفحص مدى تطابق الأكواد مع أرقام الجلوس في كشوف المواد (للمعاينة فقط)
+async function impCheckRoster() {
+  imp.rates = null;
+  var codes = {}; imp.parsed.items.forEach(function (it) { codes[it.code] = 1; });
+  var list = Object.keys(codes), cand = {};
+  list.forEach(function (c) { IMP_ORDER.forEach(function (m) { var v = IMP_METHODS[m](c); if (v) cand[v] = 1; }); });
+  var all = Object.keys(cand), hit = {};
+  try {
+    for (var i = 0; i < all.length; i += 50) {
+      var r = await sb.from('subject_students').select('seat').in('seat', all.slice(i, i + 50));
+      if (r.error) throw r.error;
+      (r.data || []).forEach(function (x) { hit[x.seat] = 1; });
+    }
+  } catch (e) { return; }
+  imp.students = list.length; imp.rates = {};
+  IMP_ORDER.forEach(function (m) { var n = 0; list.forEach(function (c) { if (hit[IMP_METHODS[m](c)]) n++; }); imp.rates[m] = n; });
+}
+function impMethod() {
+  var m = $('imp-method').value;
+  if (m !== 'auto') return m;
+  if (!imp.rates) return 'strip';
+  var best = 'strip'; IMP_ORDER.forEach(function (k) { if (imp.rates[k] > imp.rates[best]) best = k; });
+  return best;
+}
+function fmtCairo(ms) {
+  return new Date(ms).toLocaleString('en-GB', { timeZone: 'Africa/Cairo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+}
+function renderImpPreview() {
+  if (!imp) return;
+  var p = imp.parsed, m = impMethod(), b = buildPunches(p, m, parseInt($('imp-device').value, 10) || 0);
+  imp.punches = b.list;
+  var sum = $('imp-sum'); sum.innerHTML = '';
+  function li(t, cls) { sum.appendChild(el('li', cls || '', t)); }
+  var kinds = { wide: 'تقرير تفصيلي (صف لكل طالب في اليوم)', datetime: 'سجل بصمات (التاريخ والوقت في عمود)', split: 'سجل بصمات (التاريخ والوقت في عمودين)' };
+  li('الملف: ' + imp.file + ' — ' + kinds[p.kind]);
+  var stu = {}; b.list.forEach(function (x) { stu[x.student_no] = 1; });
+  if (b.list.length) {
+    var mn = b.list[0].ms, mx = mn; b.list.forEach(function (x) { if (x.ms < mn) mn = x.ms; if (x.ms > mx) mx = x.ms; });
+    li(b.list.length + ' بصمة لعدد ' + Object.keys(stu).length + ' طالب، من ' + new Date(mn).toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' }) + ' إلى ' + new Date(mx).toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' }) + '.');
+  } else li('لا توجد بصمات صالحة للاستيراد.', 'msg bad');
+  li('صيغة التاريخ المقروءة: ' + (p.dmy ? 'يوم/شهر/سنة' : 'شهر/يوم/سنة') + (p.conflict ? ' — تنبيه: التواريخ فيها الصيغتين، راجع العينة.' : '') + '.');
+  if (b.noDev) li('تنبيه: ' + b.noDev + ' بصمة بدون رقم جهاز. اختر الجهاز من القائمة أعلاه.', 'msg bad');
+  if (p.skipped || b.bad) li('تم تجاهل ' + (p.skipped + b.bad) + ' خلية أو صف غير صالح (وقت أو تاريخ غير مفهوم).');
+  if (imp.rates) {
+    var n = imp.rates[m];
+    li('رقم الجلوس بعد التحويل («' + IMP_LABEL[m] + '») موجود في كشوف المواد لـ ' + n + ' من ' + imp.students + ' طالب.', n === 0 ? 'msg bad' : '');
+    if (n === 0) li('ولا رقم مطابق للكشوف. الأرجح أن كود الجهاز مختلف عن رقم الجلوس، فلن تُسجَّل حضورًا. جرّب طريقة تحويل تانية أو راجع العينة.', 'msg bad');
+  } else li('تعذّر فحص مطابقة الأكواد مع الكشوف (صلاحيات). الاستيراد سيعمل والمطابقة تتم في Supabase.');
+  var tb = $('imp-rows'); tb.innerHTML = '';
+  b.list.slice(0, 6).forEach(function (x) {
+    var tr = el('tr');
+    [x.raw_code, x.student_no, String(x.device_no), fmtCairo(x.ms)].forEach(function (v) { var td = el('td', '', v); td.dir = 'ltr'; tr.appendChild(td); });
+    tb.appendChild(tr);
+  });
+  $('imp-go').disabled = !b.list.length;
+  $('imp-preview').hidden = false;
+}
+
+$('imp-file').onchange = function () {
+  var f = this.files && this.files[0]; imp = null;
+  $('imp-preview').hidden = true; $('imp-res').innerHTML = ''; msg('imp-msg', '');
+  if (!f) return;
+  var isCsv = /\.csv$/i.test(f.name), reader = new FileReader();
+  reader.onerror = function () { msg('imp-msg', 'تعذّرت قراءة الملف.', 'bad'); };
+  reader.onload = async function () {
+    try {
+      if (typeof XLSX === 'undefined') throw new Error('تعذّر تحميل مكتبة قراءة Excel.');
+      var wb = XLSX.read(reader.result, { type: isCsv ? 'string' : 'array' });
+      var rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: false, defval: '' });
+      imp = { parsed: parsePunchSheet(rows), file: f.name, rates: null, students: 0, punches: [] };
+      msg('imp-msg', 'جارٍ فحص الأكواد مع كشوف المواد…');
+      await impCheckRoster();
+      msg('imp-msg', '');
+      renderImpPreview();
+    } catch (e) { imp = null; msg('imp-msg', errText(e), 'bad'); }
+  };
+  if (isCsv) reader.readAsText(f, 'UTF-8'); else reader.readAsArrayBuffer(f);
+};
+$('imp-device').onchange = renderImpPreview;
+$('imp-method').onchange = renderImpPreview;
+
+$('imp-go').onclick = async function () {
+  if (!imp || !imp.punches.length) return;
+  var btn = $('imp-go'), list = imp.punches, tot = { received: 0, inserted: 0, skipped: 0, status: {} };
+  btn.disabled = true; $('imp-res').innerHTML = ''; msg('imp-msg', 'جارٍ الاستيراد…');
+  try {
+    for (var i = 0; i < list.length; i += 2000) {
+      var chunk = list.slice(i, i + 2000).map(function (x) { return { device_no: x.device_no, student_no: x.student_no, punched_at: x.punched_at, source_row_id: x.source_row_id, raw_code: x.raw_code, source: x.source }; });
+      var r = await sb.rpc('import_device_punches', { p_rows: chunk });
+      if (r.error) throw r.error;
+      var d = r.data || {};
+      tot.received += d.received || 0; tot.inserted += d.inserted || 0; tot.skipped += d.skipped || 0;
+      Object.keys(d.status || {}).forEach(function (k) { tot.status[k] = (tot.status[k] || 0) + d.status[k]; });
+    }
+    msg('imp-msg', 'تم الاستيراد: ' + tot.inserted + ' بصمة جديدة، وتم تجاهل ' + tot.skipped + ' مكررة.', 'ok');
+    var ul = $('imp-res');
+    Object.keys(tot.status).forEach(function (k) { ul.appendChild(el('li', '', (IMP_STATUS[k] || k) + ': ' + tot.status[k])); });
+    if (tot.status.no_session) ul.appendChild(el('li', 'hint', 'البصمات «بدون جلسة» تُسجَّل حضورًا لو فتحت جلسة في نفس القاعة تغطي وقتها، ثم شغّل «إعادة المطابقة» من Supabase (select reprocess_unmatched();).'));
+    loadHallsAdmin();
+  } catch (e) {
+    var t = errText(e) + ((e && e.code) || '');
+    msg('imp-msg', /import_device_punches|PGRST202|42883|schema cache/i.test(t) ? 'دالة الاستيراد غير مثبّتة في Supabase بعد. شغّل ملف import_device_punches.sql في SQL Editor ثم أعد المحاولة.' : /not allowed/i.test(t) ? 'الاستيراد للمدير فقط.' : t, 'bad');
+  }
+  btn.disabled = false;
 };
 
 /* ============ الداشبورد ============ */

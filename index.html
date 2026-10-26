@@ -158,7 +158,7 @@ function submit() {
     $('busy-text').textContent = 'جارٍ تسجيل حضورك…';
     return rpc('submit_attendance', args);
   }).then(function (r) {
-    if (r.ok) showResult(true, r.already ? 'مسجَّل مسبقًا' : 'تم تسجيل حضورك', (r.name || name) + ' — ' + (r.subject || ''), r.stamp ? 'وقت التسجيل: ' + r.stamp : '', false);
+    if (r.ok) showResult(true, r.already ? 'مسجَّل مسبقًا' : 'تم تسجيل حضورك', (r.name || name) + ' — ' + (r.subject || '') + (r.unregistered ? ' (غير مسجّل في الكشف، وسيراجعه المحاضر)' : ''), r.stamp ? 'وقت التسجيل: ' + r.stamp : '', false);
     else showResult(false, 'لم يتم التسجيل', r.message, '', true);
   }).catch(function (e) {
     showResult(false, 'لم يتم التسجيل', (e && e.message && !/fetch|network/i.test(e.message)) ? e.message : 'تعذّر الاتصال بالخادم. تأكد من الإنترنت وحاول مرة أخرى.', '', true);
