@@ -453,6 +453,7 @@ catch(e){document.documentElement.dataset.theme='azhar';}
       <div class="card" id="unreg-live-card" hidden>
         <h2 data-ic="alert">طلاب غير مسجّلين في الكشف (للمراجعة)</h2>
         <p class="hint" style="margin-top:0">«إضافة للكشف» تضيف الطالب إلى كشف المادة وتُبقي حضوره. «حذف» يلغي تسجيل الحضور.</p>
+        <p><button id="unreg-live-all" type="button" data-ic="check">إضافة الكل للكشف</button></p>
         <ul class="plain" id="unreg-live-list"></ul>
         <div id="unreg-live-msg" class="msg" hidden></div>
       </div>
@@ -465,6 +466,7 @@ catch(e){document.documentElement.dataset.theme='azhar';}
       <h2 data-ic="alert">مراجعة غير المسجّلين في الكشف</h2>
       <p class="hint" style="margin-top:0">طلاب سجّلوا حضورهم بكتابة بياناتهم وليسوا في كشف المادة المختارة في «المادة» بالأسفل.</p>
       <p><button id="unreg-rep-go" data-ic="refresh" type="button">عرض غير المسجّلين للمادة المختارة</button></p>
+      <p><button id="unreg-rep-all" type="button" data-ic="check">إضافة الكل للكشف</button></p>
       <ul class="plain" id="unreg-rep-list"></ul>
       <div id="unreg-rep-msg" class="msg" hidden></div>
     </div>
@@ -1247,6 +1249,20 @@ async function loadUnreg(args, cardId, listId, msgId) {
     li.appendChild(add); li.appendChild(del); ul.appendChild(li);
   });
 }
+async function addAllUnreg(args, cardId, listId, msgId) {
+  if (!window.confirm('إضافة كل الطلاب غير المسجّلين إلى كشف المادة؟ سيُستخدم الاسم الذي كتبه كل طالب.')) return;
+  msg(msgId, 'جارٍ الإضافة…');
+  var x = await sb.rpc('resolve_all_unregistered', args);
+  if (x.error) { msg(msgId, /resolve_all_unregistered/.test(x.error.message || '') ? 'شغّل ملف add_all_unregistered.sql في Supabase أولًا.' : errText(x.error), 'bad'); return; }
+  msg(msgId, 'أُضيف ' + x.data.added + ' طالب إلى الكشف.', 'ok');
+  loadUnreg(args, cardId, listId, msgId);
+}
+$('unreg-live-all').onclick = function () { addAllUnreg({ p_session: liveId }, 'unreg-live-card', 'unreg-live-list', 'unreg-live-msg'); };
+$('unreg-rep-all').onclick = function () {
+  var sid = $('r-subject').value;
+  if (!sid) { msg('unreg-rep-msg', 'اختر المادة أولًا.', 'bad'); return; }
+  addAllUnreg({ p_subject: sid }, null, 'unreg-rep-list', 'unreg-rep-msg');
+};
 $('unreg-rep-go').onclick = function () {
   var sid = $('r-subject').value;
   if (!sid) { msg('unreg-rep-msg', 'اختر المادة أولًا.', 'bad'); return; }
