@@ -159,6 +159,7 @@ catch(e){document.documentElement.dataset.theme='azhar';}
   .ltile { --tc:var(--brand); position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:12px; text-align:start; padding:18px;
     border-radius:18px; background:var(--card); border:1px solid var(--line); box-shadow:var(--shadow); font-weight:400; transition:transform .15s, border-color .15s; }
   .ltile:hover { transform:translateY(-2px); border-color:var(--tc); }
+  .ltile.hot { border-color:var(--tc); background:color-mix(in srgb, var(--tc) 9%, var(--card)); }
   .ltile .sico { width:58px; height:58px; border-radius:18px; }
   .ltile .sico i.ico { width:30px; height:30px; }
   .ltile .lt { display:block; }
@@ -808,9 +809,9 @@ var NAV = [
   { id: 'dash', t: 'الرئيسية', ic: 'home', subs: [
     ['overview', 'نظرة عامة', 'home'],
     ['trend', 'آخر المحاضرات', 'activity', 0, '#0b6b4f', 'نسبة الحضور في آخر المحاضرات'],
-    ['daily', 'التسجيلات اليومية', 'calendar', 0, '#2563eb', 'عدد التسجيلات خلال آخر 14 يومًا'],
+    ['daily', 'التسجيلات اليومية', 'calendar', 1, '#2563eb', 'عدد التسجيلات خلال آخر 14 يومًا'],
     ['subjects', 'الحضور حسب المادة', 'book', 0, '#7c3aed', 'قارن المواد وافتح تقرير أي مادة'],
-    ['depts', 'الحضور حسب القسم', 'sitemap', 0, '#0891b2', 'نسب الحضور لكل قسم وما تحته'],
+    ['depts', 'الحضور حسب القسم', 'sitemap', 1, '#0891b2', 'نسب الحضور لكل قسم وما تحته'],
     ['risk', 'المعرَّضون للحرمان', 'alert', 0, '#dc2626', 'طلاب أقل من حدّ الحضور'],
     ['lecturers', 'نشاط المحاضرين', 'users', 1, '#d97706', 'محاضرات كل محاضر وآخر نشاط']] },
   { id: 'subjects', t: 'المواد وكشوف الطلاب', ic: 'book' },
@@ -830,24 +831,42 @@ function navBtn(cls, text, ic, attrs) {
   Object.keys(attrs || {}).forEach(function (k) { b.setAttribute(k, attrs[k]); });
   return b;
 }
+function navList(isAdmin) {
+  var l = NAV.filter(function (n) { return !(n.admin && !isAdmin); });
+  if (!isAdmin) {   // المحاضر: جلسة الحضور أولًا (أهم إجراء له)
+    var i = l.map(function (n) { return n.id; }).indexOf('session'), j = l.map(function (n) { return n.id; }).indexOf('subjects');
+    if (i > j && j > -1) { var x = l.splice(i, 1)[0]; l.splice(j, 0, x); }
+  }
+  return l;
+}
 function buildNav() {
   var nav = $('tabs'); nav.innerHTML = '';
   var isAdmin = me && me.role === 'admin';
-  NAV.forEach(function (n) {
-    if (n.admin && !isAdmin) return;
+  NAV.filter(function (n) { return n.id === 'subjects'; })[0].t = isAdmin ? 'المواد وكشوف الطلاب' : 'موادي وكشوفها';
+  navList(isAdmin).forEach(function (n) {
+    var nested = isAdmin || n.id !== 'dash';   // المحاضر: بلا قائمة فرعية تحت «الرئيسية» (البلاطات في الصفحة تكفي)
     var b = navBtn('nav-btn', n.t, n.ic, { 'data-tab': n.id });
-    if (n.subs) { b.setAttribute('aria-expanded', 'false'); var c = el('i', 'ico chev'); c.setAttribute('data-ic', 'chevron'); b.appendChild(c); }
+    if (n.subs && nested) { b.setAttribute('aria-expanded', 'false'); var c = el('i', 'ico chev'); c.setAttribute('data-ic', 'chevron'); b.appendChild(c); }
     nav.appendChild(b);
     if (n.subs) {
-      var w = el('div', 'nav-subs'); w.id = 'subs-' + n.id;
-      n.subs.forEach(function (s) { if (s[3] && !isAdmin) return; w.appendChild(navBtn('nav-btn', s[1], s[2], { 'data-nav': n.id + ':' + s[0] })); });
-      nav.appendChild(w);
+      if (nested) {
+        var w = el('div', 'nav-subs'); w.id = 'subs-' + n.id;
+        n.subs.forEach(function (s) { if (s[3] && !isAdmin) return; w.appendChild(navBtn('nav-btn', s[1], s[2], { 'data-nav': n.id + ':' + s[0] })); });
+        nav.appendChild(w);
+      }
       var sn = $('subnav-' + n.id);
       if (sn) {
         sn.innerHTML = '';
         n.subs.forEach(function (s) { if (s[3] && !isAdmin) return; sn.appendChild(navBtn('', s[1], s[2], { 'data-go': n.id + ':' + s[0] })); });
         if (n.id === 'dash') {
           var L = $('dash-launch'); L.innerHTML = '';
+          if (!isAdmin) {
+            $('dash-stats').parentNode.insertBefore(L, $('dash-stats'));   // المحاضر: الإجراءات قبل الأرقام
+            var st0 = el('button', 'ltile hot'); st0.type = 'button'; st0.setAttribute('data-tab', 'session'); st0.style.setProperty('--tc', '#059669');
+            var sc0 = el('span', 'sico'); var si0 = el('i', 'ico'); si0.setAttribute('data-ic', 'play'); sc0.appendChild(si0); st0.appendChild(sc0);
+            var sw0 = el('span', 'lt'); sw0.appendChild(el('b', '', 'بدء جلسة حضور')); sw0.appendChild(el('span', '', 'ابدأ تسجيل حضور محاضرتك الآن')); st0.appendChild(sw0);
+            L.appendChild(st0);
+          } else { $('dash-stats').parentNode.insertBefore($('dash-stats'), L); }
           n.subs.forEach(function (s) {
             if (!s[4] || (s[3] && !isAdmin)) return;
             var b = el('button', 'ltile'); b.type = 'button'; b.setAttribute('data-go', 'dash:' + s[0]); b.style.setProperty('--tc', s[4]);
@@ -893,7 +912,7 @@ document.addEventListener('click', function (e) {
   var b = e.target.closest('button[data-tab], button[data-nav], button[data-go]'); if (!b) return;
   if (b.dataset.tab) {
     var tb = b.dataset.tab, nd = NAV.filter(function (x) { return x.id === tb; })[0];
-    if (nd.subs && tb === curTab) {   // ضغطة ثانية على نفس القسم: طيّ/فتح قائمته الفرعية
+    if (nd.subs && tb === curTab && $('subs-' + tb)) {   // ضغطة ثانية على نفس القسم: طيّ/فتح قائمته الفرعية
       collapsed[tb] = !collapsed[tb];
       $('subs-' + tb).classList.toggle('open', !collapsed[tb]);
       b.setAttribute('aria-expanded', collapsed[tb] ? 'false' : 'true');
@@ -2108,6 +2127,7 @@ function renderDash() {
                [fmtPct(pctOf(rec, den)), 'متوسط الحضور', 'percent', '#0891b2'],
                [dash.today_sessions, 'محاضرات اليوم', 'clock', '#d97706'], [dash.today_records, 'تسجيلات اليوم', 'check-circle', '#059669'],
                [dash.at_risk_total, 'معرَّضون للحرمان (<' + thr + '%)', 'alert', '#dc2626']];
+  if (!(me && me.role === 'admin')) tiles = [tiles[4], tiles[5], tiles[1], tiles[3]];   // المحاضر: اليوم + الطلاب + متوسط الحضور فقط
   var box = $('dash-stats'); box.innerHTML = '';
   tiles.forEach(function (t) {
     var d = el('div', 'stat'); d.style.setProperty('--tc', t[3]);
