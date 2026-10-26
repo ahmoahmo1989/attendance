@@ -319,7 +319,7 @@ catch(e){document.documentElement.dataset.theme='azhar';}
     <div id="dash-msg" class="msg" hidden></div>
     <div data-sub="overview"><div class="card" id="tt-now-card" hidden><h2 data-ic="calendar">محاضرتك الآن</h2><ul class="plain" id="tt-now-list"></ul></div></div>
     <div data-sub="overview"><div class="stats" id="dash-stats"></div><div class="launch" id="dash-launch"></div></div>
-    <div data-sub="overview"><div id="dash-empty" class="card" hidden><h2 data-ic="info">لا توجد بيانات بعد</h2><p>أنشئ مادة وارفع كشف الطلاب من تبويب «المواد وكشوف الطلاب»، ثم ابدأ جلسة حضور، وستظهر هنا الإحصائيات.</p></div></div>
+    <div data-sub="overview"><div id="dash-empty" class="card" hidden><h2 data-ic="info">لا توجد بيانات بعد</h2><p>تُضاف المواد وكشوف الطلاب بواسطة مدير النظام من تبويب «المواد وكشوف الطلاب»، ثم ابدأ جلسة حضور، وستظهر هنا الإحصائيات.</p></div></div>
     <div id="dash-body">
       <div class="card" data-sub="trend"><h2 data-ic="activity">نسبة الحضور في آخر المحاضرات</h2>
         <div class="chart" id="ch-trend"></div><p class="cap" id="cap-trend" aria-live="polite"></p></div>
@@ -375,6 +375,7 @@ catch(e){document.documentElement.dataset.theme='azhar';}
       <p><button id="roster-cancel" data-ic="x" type="button" hidden>إلغاء</button></p>
       <div id="roster-msg" class="msg" hidden></div>
     </div>
+    <div id="sub-flash" class="msg" hidden></div>
     <div class="card">
       <h2 data-ic="folder">موادي</h2>
       <div id="subjects-list"><p class="hint">جارٍ التحميل…</p></div>
@@ -718,6 +719,7 @@ async function afterSignIn() {
   $('f-lecturer-box').hidden = me.role !== 'admin';
   show('view-login', false); show('view-app', true);
   await loadAll();
+  resetRosterForm();
 }
 
 async function init() {
@@ -1094,6 +1096,7 @@ function resetRosterForm() {
   $('roster-cancel').hidden = true;
   ['f-subject', 'f-level', 'f-term'].forEach(function (i) { $(i).value = ''; });
   fillCatalog();
+  $('roster-card').hidden = !(me && me.role === 'admin');   // المحاضر لا يضيف مواد: الكارت يظهر له فقط عند «إضافة طلاب» لمادة قائمة
 }
 function startAddMode(s) {
   resetRosterForm(); addToId = s.id;
@@ -1101,6 +1104,7 @@ function startAddMode(s) {
   $('roster-title').textContent = 'إضافة طلاب إلى: ' + s.name + ' — ' + s.level + (s.term ? ' — ' + s.term : '');
   $('roster-save').textContent = 'إضافة الطلاب للكشف';
   $('roster-cancel').hidden = false;
+  $('roster-card').hidden = false;
   $('roster-card').scrollIntoView({ behavior: 'smooth' });
 }
 $('roster-cancel').onclick = resetRosterForm;
@@ -1144,7 +1148,7 @@ $('roster-save').onclick = async function () {
         text = 'تم إنشاء المادة بدون طلاب. أضف الكشف لاحقًا بزر «إضافة طلاب» في قائمة موادي.';
       }
     }
-    resetRosterForm(); msg('roster-msg', text, 'ok'); await loadSubjects();
+    resetRosterForm(); msg('roster-msg', text, 'ok'); msg('sub-flash', $('roster-card').hidden ? text : '', 'ok'); await loadSubjects();
   } catch (e) { msg('roster-msg', assignErr(e), 'bad'); }
   btn.disabled = false;
 };
