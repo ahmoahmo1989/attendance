@@ -158,6 +158,9 @@ catch(e){document.documentElement.dataset.theme='azhar';}
   .launch { display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:12px; margin-bottom:14px; }
   .ltile { --tc:var(--brand); position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:12px; text-align:start; padding:18px;
     border-radius:18px; background:var(--card); border:1px solid var(--line); box-shadow:var(--shadow); font-weight:400; transition:transform .15s, border-color .15s; }
+  .actions .iconbtn { display:flex; flex-direction:column; align-items:center; gap:4px; min-width:78px; padding:10px 12px; font-size:.8rem; }
+  .actions .iconbtn i.ico { width:22px; height:22px; }
+  .actions .iconbtn.danger { color:var(--bad); }
   .ltile:hover { transform:translateY(-2px); border-color:var(--tc); }
   .ltile.hot { border-color:var(--tc); background:color-mix(in srgb, var(--tc) 9%, var(--card)); }
   .ltile .sico { width:58px; height:58px; border-radius:18px; }
@@ -358,7 +361,11 @@ catch(e){document.documentElement.dataset.theme='azhar';}
   </section>
 
   <section id="tab-subjects" hidden>
-    <div class="card" id="roster-card">
+    <div class="opts" id="sub-tabs" style="grid-template-columns:repeat(2,1fr);margin-top:0">
+      <button type="button" class="opt on" data-pane="subjects-card" title="المواد الحالية"><i class="ico" data-ic="folder"></i><span>موادي</span></button>
+      <button type="button" class="opt" id="sub-tab-add" data-pane="roster-card" title="إضافة مادة وكشف طلاب"><i class="ico" data-ic="plus"></i><span>إضافة مادة</span></button>
+    </div>
+    <div class="card" id="roster-card" hidden>
       <h2 id="roster-title" data-ic="file">إضافة مادة وكشف طلاب</h2>
       <div id="subject-fields">
         <div class="row">
@@ -387,7 +394,7 @@ catch(e){document.documentElement.dataset.theme='azhar';}
       <div id="roster-msg" class="msg" hidden></div>
     </div>
     <div id="sub-flash" class="msg" hidden></div>
-    <div class="card">
+    <div class="card" id="subjects-card">
       <h2 data-ic="folder">موادي</h2>
       <div id="subjects-list"><p class="hint">جارٍ التحميل…</p></div>
     </div>
@@ -1033,7 +1040,7 @@ async function loadSubjects() {
   if (r.error) { $('subjects-list').textContent = errText(r.error); return; }
   subjects = r.data || [];
   var box = $('subjects-list'); box.innerHTML = '';
-  if (!subjects.length) box.appendChild(el('p', 'hint', 'لا توجد مواد بعد. أضف أول مادة من النموذج بالأعلى.'));
+  if (!subjects.length) box.appendChild(el('p', 'hint', 'لا توجد مواد بعد. أضف أول مادة من أيقونة «إضافة مادة».'));
   subjects.forEach(function (s) {
     var c = el('div', 'subject-item');
     var h = el('h3', '', s.name); if (s.archived) h.appendChild(el('span', 'tag', 'مؤرشفة'));
@@ -1041,15 +1048,15 @@ async function loadSubjects() {
     var cnt = (s.subject_students && s.subject_students[0] && s.subject_students[0].count) || 0;
     c.appendChild(el('div', 'meta', [s.level, s.term, deptPath(s.department_id), s.lecturer_name].filter(Boolean).join(' — ') + ' · ' + cnt + ' طالب'));
     var acts = el('div', 'actions');
-    var b1 = el('button', '', 'إضافة طلاب'); b1.onclick = function () { startAddMode(s); }; acts.appendChild(b1);
-    var b2 = el('button', '', s.archived ? 'إلغاء الأرشفة' : 'أرشفة'); b2.onclick = async function () {
+    var b1 = iconBtn('', 'user-plus', 'إضافة طلاب'); b1.onclick = function () { startAddMode(s); }; acts.appendChild(b1);
+    var b2 = iconBtn('', 'archive', s.archived ? 'إلغاء الأرشفة' : 'أرشفة'); b2.onclick = async function () {
       var u = await sb.from('subjects').update({ archived: !s.archived }).eq('id', s.id);
       if (u.error) msg('roster-msg', errText(u.error), 'bad'); else loadSubjects();
     }; acts.appendChild(b2);
     if (me.role === 'admin') {
-      var b3 = el('button', 'danger', 'حذف المادة'), armed = false;
+      var b3 = iconBtn('danger', 'trash', 'حذف المادة'), armed = false, b3t = b3.querySelector('span');
       b3.onclick = async function () {
-        if (!armed) { armed = true; b3.textContent = 'اضغط للتأكيد (يحذف كل حضورها)'; setTimeout(function () { armed = false; b3.textContent = 'حذف المادة'; }, 5000); return; }
+        if (!armed) { armed = true; b3t.textContent = 'اضغط للتأكيد'; b3.title = 'يحذف المادة وكل حضورها'; setTimeout(function () { armed = false; b3t.textContent = 'حذف المادة'; }, 5000); return; }
         var d2 = await sb.from('subjects').delete().eq('id', s.id);
         if (d2.error) msg('roster-msg', errText(d2.error), 'bad'); else loadSubjects();
       };
@@ -1142,7 +1149,8 @@ function resetRosterForm() {
   $('roster-cancel').hidden = true;
   ['f-subject', 'f-level', 'f-term'].forEach(function (i) { $(i).value = ''; });
   fillCatalog();
-  $('roster-card').hidden = !(me && me.role === 'admin');   // المحاضر لا يضيف مواد: الكارت يظهر له فقط عند «إضافة طلاب» لمادة قائمة
+  $('sub-tab-add').hidden = !(me && me.role === 'admin');   // المحاضر لا يضيف مواد: «إضافة مادة» للمدير فقط
+  showSubPane('subjects-card');
 }
 function startAddMode(s) {
   resetRosterForm(); addToId = s.id;
@@ -1150,8 +1158,8 @@ function startAddMode(s) {
   $('roster-title').textContent = 'إضافة طلاب إلى: ' + s.name + ' — ' + s.level + (s.term ? ' — ' + s.term : '');
   $('roster-save').textContent = 'إضافة الطلاب للكشف';
   $('roster-cancel').hidden = false;
-  $('roster-card').hidden = false;
-  $('roster-card').scrollIntoView({ behavior: 'smooth' });
+  showSubPane('roster-card');
+  window.scrollTo(0, 0);
 }
 $('roster-cancel').onclick = resetRosterForm;
 
@@ -1194,7 +1202,7 @@ $('roster-save').onclick = async function () {
         text = 'تم إنشاء المادة بدون طلاب. أضف الكشف لاحقًا بزر «إضافة طلاب» في قائمة موادي.';
       }
     }
-    resetRosterForm(); msg('roster-msg', text, 'ok'); msg('sub-flash', $('roster-card').hidden ? text : '', 'ok'); await loadSubjects();
+    resetRosterForm(); msg('roster-msg', text, 'ok'); msg('sub-flash', text, 'ok'); await loadSubjects();
   } catch (e) { msg('roster-msg', assignErr(e), 'bad'); }
   btn.disabled = false;
 };
@@ -1269,6 +1277,20 @@ function showSessPane(id) {
   [].forEach.call(document.querySelectorAll('#sess-tabs .opt'), function (b) { b.classList.toggle('on', b.dataset.pane === id); });
 }
 [].forEach.call(document.querySelectorAll('#sess-tabs .opt'), function (b) { b.onclick = function () { showSessPane(b.dataset.pane); }; });
+
+/* أيقونات المواد وكشوف الطلاب: موادي / إضافة مادة */
+function showSubPane(id) {
+  $('subjects-card').hidden = (id !== 'subjects-card'); $('roster-card').hidden = (id !== 'roster-card');
+  [].forEach.call(document.querySelectorAll('#sub-tabs .opt'), function (b) { b.classList.toggle('on', b.dataset.pane === id); });
+}
+[].forEach.call(document.querySelectorAll('#sub-tabs .opt'), function (b) {
+  b.onclick = function () { if (b.dataset.pane === 'roster-card' && addToId) resetRosterForm(); showSubPane(b.dataset.pane); };
+});
+function iconBtn(cls, ic, label) {
+  var b = el('button', 'iconbtn ' + cls); b.type = 'button';
+  var i = el('i', 'ico'); i.setAttribute('data-ic', ic); b.appendChild(i);
+  b.appendChild(el('span', '', label)); b.title = label; return b;
+}
 
 /* أيقونات أقسام التقارير */
 function showRepPane(id) {
