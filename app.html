@@ -721,6 +721,47 @@ catch(e){document.documentElement.dataset.theme='azhar';}
       </div>
       <ul class="plain" id="imp-res"></ul>
     </div>
+    <div class="card" data-sub="punches">
+      <h2 data-ic="users">تطبيق البصمات على مواد المجموعة</h2>
+      <p class="hint" style="margin-top:0">اختر أي مادة، وسيُسجَّل حضور الطلاب (بحسب بصماتهم المستوردة) في <b>كل مواد نفس القسم والفرقة والفصل</b> دفعة واحدة. كل يوم فيه بصمة يُنشأ له جلسة مغلقة لكل مادة. آمن للتكرار.</p>
+      <label for="pg-subject" data-ic="book">المادة (تحدد المجموعة)</label>
+      <select id="pg-subject"></select>
+      <div class="row">
+        <div><label for="pg-from">من تاريخ (اختياري)</label><input id="pg-from" type="date"></div>
+        <div><label for="pg-to">إلى تاريخ (اختياري)</label><input id="pg-to" type="date"></div>
+      </div>
+      <button type="button" class="primary" data-ic="check" id="pg-go">تطبيق على مواد المجموعة</button>
+      <div id="pg-msg" class="msg" hidden></div>
+    </div>
+    <div class="card" data-sub="punches">
+      <h2 data-ic="clock">تقرير بصمات الأجهزة</h2>
+      <p class="hint" style="margin-top:0">كل البصمات المستوردة من أجهزة القاعات وحالة مطابقتها مع الجلسات. التواريخ بتوقيت القاهرة.</p>
+      <div class="row">
+        <div><label for="pr-from">من تاريخ</label><input id="pr-from" type="date"></div>
+        <div><label for="pr-to">إلى تاريخ</label><input id="pr-to" type="date"></div>
+      </div>
+      <div class="row">
+        <div><label for="pr-status">الحالة</label><select id="pr-status">
+          <option value="">كل الحالات</option><option value="matched">تم تسجيل الحضور</option><option value="no_session">بدون جلسة</option>
+          <option value="no_device">جهاز/قاعة غير مفعّل</option><option value="not_in_roster">ليس في الكشف</option><option value="pending">لم تُطابق بعد</option><option value="error">خطأ</option></select></div>
+        <div><label for="pr-student">رقم الجلوس (اختياري)</label><input id="pr-student" inputmode="numeric" autocomplete="off" placeholder="كل الطلاب"></div>
+      </div>
+      <div class="opts" style="grid-template-columns:repeat(3,1fr)">
+        <button type="button" class="opt" id="pr-go" title="عرض التقرير"><i class="ico" data-ic="refresh"></i><span>عرض</span></button>
+        <button type="button" class="opt" id="pr-reproc" title="إعادة مطابقة البصمات غير المتطابقة (بعد فتح جلسات أو ربط الجهاز بقاعة)"><i class="ico" data-ic="activity"></i><span>إعادة المطابقة</span></button>
+        <button type="button" class="opt" id="pr-xlsx" title="تحميل البصمات بحسب الفلاتر إلى Excel"><i class="ico" data-ic="download"></i><span>تحميل Excel</span></button>
+      </div>
+      <div id="pr-msg" class="msg" hidden></div>
+      <div id="pr-box" hidden>
+        <div class="stats" id="pr-stats"></div>
+        <p class="hint" id="pr-range" style="margin:0 0 8px"></p>
+        <h3 data-ic="calendar">حسب اليوم</h3>
+        <div class="scroll"><table><thead><tr><th>اليوم</th><th>البصمات</th><th>الطلاب</th><th>تم تسجيل حضورهم</th></tr></thead><tbody id="pr-days"></tbody></table></div>
+        <h3 data-ic="list">البصمات</h3>
+        <p class="hint" id="pr-count" style="margin:0 0 6px"></p>
+        <div class="scroll"><table><thead><tr><th>الوقت</th><th>رقم الجلوس</th><th>الاسم</th><th>الجهاز</th><th>الحالة</th><th>المادة</th></tr></thead><tbody id="pr-rows"></tbody></table></div>
+      </div>
+    </div>
   </section>
    </div>
   </main>
@@ -846,7 +887,7 @@ var NAV = [
     ['courses', 'كتالوج المواد', 'book'], ['levels', 'الفرق الدراسية', 'cap'], ['lecturers', 'المحاضرون', 'users']] },
   { id: 'admin', t: 'الإدارة', ic: 'settings', admin: 1, subs: [
     ['depts', 'الأقسام', 'sitemap'], ['users', 'المحاضرون والمستخدمون', 'user-plus'], ['registered', 'المسجلون على النظام', 'shield-check'],
-    ['halls', 'القاعات وأجهزة البصمة', 'pin']] }
+    ['halls', 'القاعات وأجهزة البصمة', 'pin'], ['punches', 'تقرير البصمات', 'clock']] }
 ];
 var curTab = 'dash', curSub = {}, collapsed = {};
 
@@ -926,6 +967,7 @@ function go(tab, sub, noLoad) {
   if (tab === 'dash') { $('subnav-dash').hidden = (sub === 'overview'); if (dash) renderDash(); }
   closeSide();
   window.scrollTo(0, 0);
+  if (tab === 'admin' && sub === 'punches' && !noLoad) loadPunchReport();
   if (noLoad || !changedTab) return;
   if (tab === 'dash') loadDash();
   if (tab === 'session') { refreshRecent(); loadTimetable(); }
@@ -1082,7 +1124,7 @@ async function loadSubjects() {
     c.appendChild(acts);
     box.appendChild(c);
   });
-  ['s-subject', 'r-subject', 'u-subject'].forEach(function (id) {
+  ['s-subject', 'r-subject', 'u-subject', 'pg-subject'].forEach(function (id) {
     var sel = $(id), cur = sel.value; sel.innerHTML = '';
     subjects.filter(function (s) { return id !== 's-subject' || !s.archived; }).forEach(function (s) {
       var o = el('option', '', s.name + ' — ' + s.level + (s.term ? ' — ' + s.term : '') + (me.role === 'admin' ? ' (' + s.lecturer_name + ')' : '')); o.value = s.id; sel.appendChild(o);
@@ -1335,6 +1377,86 @@ function showRepPane(id) {
   [].forEach.call(document.querySelectorAll('#rep-tabs .opt'), function (b) { b.classList.toggle('on', b.dataset.pane === id); });
 }
 [].forEach.call(document.querySelectorAll('#rep-tabs .opt'), function (b) { b.onclick = function () { showRepPane(b.dataset.pane); }; });
+
+/* ============ تقرير بصمات الأجهزة ============ */
+var PR_ST = { matched: 'تم تسجيل الحضور', no_session: 'بدون جلسة', no_device: 'جهاز/قاعة غير مفعّل', not_in_roster: 'ليس في الكشف', pending: 'لم تُطابق بعد', error: 'خطأ' };
+function prArgs(lim) {
+  return { p_student: $('pr-student').value.trim() || null, p_status: $('pr-status').value || null,
+           p_from: $('pr-from').value || null, p_to: $('pr-to').value || null, p_limit: lim };
+}
+function prErr(e) { return /punch_report|admin_reprocess/.test((e && e.message) || '') ? 'شغّل ملف punch_report.sql في Supabase أولًا.' : errText(e); }
+function prTile(v, label, ic, color) {
+  var d = el('div', 'stat'); d.style.setProperty('--tc', color);
+  var c = el('span', 'sico'); var i = el('i', 'ico'); i.setAttribute('data-ic', ic); c.appendChild(i); d.appendChild(c);
+  var w = el('div'); w.appendChild(el('b', '', String(v))); w.appendChild(el('span', '', label)); d.appendChild(w); return d;
+}
+async function loadPunchReport() {
+  msg('pr-msg', 'جارٍ التحميل…');
+  var a = prArgs(300);
+  var sm = await sb.rpc('punch_report_summary', { p_from: a.p_from, p_to: a.p_to });
+  if (sm.error) { msg('pr-msg', prErr(sm.error), 'bad'); $('pr-box').hidden = true; return; }
+  var ls = await sb.rpc('punch_report_list', a);
+  if (ls.error) { msg('pr-msg', prErr(ls.error), 'bad'); return; }
+  msg('pr-msg', '');
+  var d = sm.data, st = d.status || {}, rows = ls.data || [];
+  $('pr-box').hidden = false;
+  var box = $('pr-stats'); box.innerHTML = '';
+  box.appendChild(prTile(d.total, 'بصمة', 'clock', '#0b6b4f'));
+  box.appendChild(prTile(d.students, 'طالب', 'users', '#2563eb'));
+  box.appendChild(prTile(st.matched || 0, 'تم تسجيل حضورهم', 'check-circle', '#059669'));
+  box.appendChild(prTile(d.total - (st.matched || 0), 'لم تتحول لحضور', 'alert', '#d97706'));
+  $('pr-range').textContent = d.total ? 'من ' + fmtCairo(new Date(d.first).getTime()) + ' إلى ' + fmtCairo(new Date(d.last).getTime()) + ' — ' +
+    Object.keys(st).map(function (k) { return (PR_ST[k] || k) + ': ' + st[k]; }).join(' · ') : 'لا توجد بصمات في هذه الفترة.';
+  var tb = $('pr-days'); tb.innerHTML = '';
+  (d.daily || []).forEach(function (x) {
+    var tr = el('tr'); [x.day, x.punches, x.students, x.matched].forEach(function (v) { tr.appendChild(el('td', '', String(v))); }); tb.appendChild(tr);
+  });
+  var rb = $('pr-rows'); rb.innerHTML = '';
+  rows.forEach(function (x) {
+    var tr = el('tr');
+    [fmtCairo(new Date(x.punched_at).getTime()), x.student_no, x.name || '—', x.device_no, PR_ST[x.status] || x.status, x.subject || '—'].forEach(function (v) { tr.appendChild(el('td', '', String(v))); });
+    if (x.status !== 'matched') tr.className = 'low';
+    rb.appendChild(tr);
+  });
+  $('pr-count').textContent = rows.length >= 300 ? 'أحدث 300 بصمة بحسب الفلاتر (حمّل Excel للكل).' : rows.length + ' بصمة.';
+}
+$('pg-go').onclick = async function () {
+  var sid = $('pg-subject').value;
+  if (!sid) { msg('pg-msg', 'اختر المادة أولًا.', 'bad'); return; }
+  var nm = $('pg-subject').options[$('pg-subject').selectedIndex].text;
+  if (!window.confirm('سيُسجَّل الحضور في كل مواد نفس مجموعة:\n' + nm + '\nمن بصمات الأجهزة المستوردة. متابعة؟')) return;
+  msg('pg-msg', 'جارٍ التطبيق… قد يستغرق دقيقة.');
+  var r = await sb.rpc('apply_punches_to_group', { p_subject: sid, p_from: $('pg-from').value || null, p_to: $('pg-to').value || null });
+  if (r.error) { msg('pg-msg', /apply_punches_to_group/.test(r.error.message || '') ? 'شغّل ملف apply_punches_group.sql في Supabase أولًا.' : errText(r.error), 'bad'); return; }
+  var d = r.data || {};
+  msg('pg-msg', 'تم: ' + d.subjects + ' مادة (' + (d.subject_names || []).join('، ') + ') — جلسات جديدة: ' + d.sessions_created + ' — حضور مضاف: ' + d.attendance_added, 'ok');
+  loadPunchReport();
+};
+$('pr-go').onclick = loadPunchReport;
+$('pr-student').addEventListener('keydown', function (e) { if (e.key === 'Enter') loadPunchReport(); });
+$('pr-reproc').onclick = async function () {
+  if (!window.confirm('إعادة مطابقة كل البصمات غير المتطابقة مع الجلسات الحالية؟')) return;
+  msg('pr-msg', 'جارٍ إعادة المطابقة…');
+  var r = await sb.rpc('admin_reprocess_unmatched');
+  if (r.error) { msg('pr-msg', prErr(r.error), 'bad'); return; }
+  await loadPunchReport();
+  msg('pr-msg', 'تمت إعادة مطابقة ' + r.data + ' بصمة.', 'ok');
+};
+$('pr-xlsx').onclick = async function () {
+  if (typeof XLSX === 'undefined') { msg('pr-msg', 'تعذّر تحميل مكتبة Excel.', 'bad'); return; }
+  msg('pr-msg', 'جارٍ تجهيز الملف…');
+  var r = await sb.rpc('punch_report_list', prArgs(20000));
+  if (r.error) { msg('pr-msg', prErr(r.error), 'bad'); return; }
+  var aoa = [['الوقت (القاهرة)', 'رقم الجلوس', 'الاسم', 'الجهاز', 'الحالة', 'المادة']];
+  (r.data || []).forEach(function (x) { aoa.push([fmtCairo(new Date(x.punched_at).getTime()), x.student_no, x.name || '', x.device_no, PR_ST[x.status] || x.status, x.subject || '']); });
+  var ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = [{ wch: 18 }, { wch: 12 }, { wch: 28 }, { wch: 8 }, { wch: 22 }, { wch: 30 }];
+  var wb = XLSX.utils.book_new(); wb.Workbook = { Views: [{ RTL: true }] }; XLSX.utils.book_append_sheet(wb, ws, 'البصمات');
+  var out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  var blob = new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  var link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'بصمات الأجهزة.xlsx';
+  document.body.appendChild(link); link.click(); link.remove(); setTimeout(function () { URL.revokeObjectURL(link.href); }, 4000);
+  msg('pr-msg', 'تم تحميل ' + (r.data || []).length + ' بصمة.', 'ok');
+};
 
 /* ============ جدولي ============ */
 var TT_DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
