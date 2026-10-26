@@ -161,6 +161,16 @@ catch(e){document.documentElement.dataset.theme='azhar';}
   .actions .iconbtn { display:flex; flex-direction:column; align-items:center; gap:4px; min-width:78px; padding:10px 12px; font-size:.8rem; }
   .actions .iconbtn i.ico { width:22px; height:22px; }
   .actions .iconbtn.danger { color:var(--bad); }
+  h3.sect { margin:18px 2px 10px; font-size:.95rem; color:var(--muted); font-weight:700; }
+  #dash-home > section:first-child h3.sect { margin-top:4px; }
+  .launch.compact { grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:10px; }
+  .launch.compact .ltile { flex-direction:row; align-items:center; gap:12px; padding:12px 14px; border-radius:16px; }
+  .launch.compact .ltile .sico { width:44px; height:44px; border-radius:14px; }
+  .launch.compact .ltile .sico i.ico { width:24px; height:24px; }
+  .launch.compact .ltile .lt span { display:none; }
+  .launch.compact .ltile .lt b { font-size:.96rem; }
+  .launch.compact .lbadge { position:static; margin-inline-start:auto; white-space:nowrap; flex:none; }
+  .launch.compact .ltile .lt { min-width:0; }
   .ltile:hover { transform:translateY(-2px); border-color:var(--tc); }
   .ltile.hot { border-color:var(--tc); background:color-mix(in srgb, var(--tc) 9%, var(--card)); }
   .ltile .sico { width:58px; height:58px; border-radius:18px; }
@@ -332,7 +342,10 @@ catch(e){document.documentElement.dataset.theme='azhar';}
     <div id="subnav-dash" class="subnav" hidden></div>
     <div id="dash-msg" class="msg" hidden></div>
     <div data-sub="overview"><div class="card" id="tt-now-card" hidden><h2 data-ic="calendar">محاضرتك الآن</h2><ul class="plain" id="tt-now-list"></ul></div></div>
-    <div data-sub="overview"><div class="stats" id="dash-stats"></div><div class="launch" id="dash-launch"></div></div>
+    <div data-sub="overview" id="dash-home">
+      <section id="dash-sec-stats"><h3 class="sect" id="dash-h-stats">ملخص اليوم</h3><div class="stats" id="dash-stats"></div><p class="hint" id="dash-totals" style="margin:6px 2px 0"></p></section>
+      <section id="dash-sec-launch"><h3 class="sect" id="dash-h-launch">التقارير والتحليلات</h3><div class="launch compact" id="dash-launch"></div></section>
+    </div>
     <div data-sub="overview"><div id="dash-empty" class="card" hidden><h2 data-ic="info">لا توجد بيانات بعد</h2><p>تُضاف المواد وكشوف الطلاب بواسطة مدير النظام من تبويب «المواد وكشوف الطلاب»، ثم ابدأ جلسة حضور، وستظهر هنا الإحصائيات.</p></div></div>
     <div id="dash-body">
       <div class="card" data-sub="trend"><h2 data-ic="activity">نسبة الحضور في آخر المحاضرات</h2>
@@ -855,7 +868,7 @@ function buildNav() {
   var isAdmin = me && me.role === 'admin';
   NAV.filter(function (n) { return n.id === 'subjects'; })[0].t = isAdmin ? 'المواد وكشوف الطلاب' : 'موادي وكشوفها';
   navList(isAdmin).forEach(function (n) {
-    var nested = isAdmin || n.id !== 'dash';   // المحاضر: بلا قائمة فرعية تحت «الرئيسية» (البلاطات في الصفحة تكفي)
+    var nested = n.id !== 'dash';   // بلا قائمة فرعية تحت «الرئيسية» (البلاطات في الصفحة تكفي)
     var b = navBtn('nav-btn', n.t, n.ic, { 'data-tab': n.id });
     if (n.subs && nested) { b.setAttribute('aria-expanded', 'false'); var c = el('i', 'ico chev'); c.setAttribute('data-ic', 'chevron'); b.appendChild(c); }
     nav.appendChild(b);
@@ -871,13 +884,13 @@ function buildNav() {
         n.subs.forEach(function (s) { if (s[3] && !isAdmin) return; sn.appendChild(navBtn('', s[1], s[2], { 'data-go': n.id + ':' + s[0] })); });
         if (n.id === 'dash') {
           var L = $('dash-launch'); L.innerHTML = '';
-          if (!isAdmin) {
-            $('dash-stats').parentNode.insertBefore(L, $('dash-stats'));   // المحاضر: الإجراءات قبل الأرقام
-            var st0 = el('button', 'ltile hot'); st0.type = 'button'; st0.setAttribute('data-tab', 'session'); st0.style.setProperty('--tc', '#059669');
-            var sc0 = el('span', 'sico'); var si0 = el('i', 'ico'); si0.setAttribute('data-ic', 'play'); sc0.appendChild(si0); st0.appendChild(sc0);
-            var sw0 = el('span', 'lt'); sw0.appendChild(el('b', '', 'بدء جلسة حضور')); sw0.appendChild(el('span', '', 'ابدأ تسجيل حضور محاضرتك الآن')); st0.appendChild(sw0);
-            L.appendChild(st0);
-          } else { $('dash-stats').parentNode.insertBefore($('dash-stats'), L); }
+          var home = $('dash-home'), secS = $('dash-sec-stats'), secL = $('dash-sec-launch');
+          if (isAdmin) { home.appendChild(secL); $('dash-h-launch').textContent = 'التقارير والتحليلات'; }
+          else { home.insertBefore(secL, secS); $('dash-h-launch').textContent = 'الوصول السريع'; }   // المحاضر: الإجراءات قبل الأرقام
+          var st0 = el('button', 'ltile hot'); st0.type = 'button'; st0.setAttribute('data-tab', 'session'); st0.style.setProperty('--tc', '#059669');
+          var sc0 = el('span', 'sico'); var si0 = el('i', 'ico'); si0.setAttribute('data-ic', 'play'); sc0.appendChild(si0); st0.appendChild(sc0);
+          var sw0 = el('span', 'lt'); sw0.appendChild(el('b', '', 'بدء جلسة حضور')); st0.appendChild(sw0);
+          L.appendChild(st0);
           n.subs.forEach(function (s) {
             if (!s[4] || (s[3] && !isAdmin)) return;
             var b = el('button', 'ltile'); b.type = 'button'; b.setAttribute('data-go', 'dash:' + s[0]); b.style.setProperty('--tc', s[4]);
@@ -2172,8 +2185,11 @@ function renderDash() {
   var tiles = [[S.length, 'مادة', 'book', '#0b6b4f'], [st, 'طالب', 'users', '#2563eb'], [se, 'محاضرة', 'calendar', '#7c3aed'],
                [fmtPct(pctOf(rec, den)), 'متوسط الحضور', 'percent', '#0891b2'],
                [dash.today_sessions, 'محاضرات اليوم', 'clock', '#d97706'], [dash.today_records, 'تسجيلات اليوم', 'check-circle', '#059669'],
-               [dash.at_risk_total, 'معرَّضون للحرمان (<' + thr + '%)', 'alert', '#dc2626']];
-  if (!(me && me.role === 'admin')) tiles = [tiles[4], tiles[5], tiles[1], tiles[3]];   // المحاضر: اليوم + الطلاب + متوسط الحضور فقط
+               [dash.at_risk_total, 'معرَّضون للحرمان', 'alert', '#dc2626']];
+  var isAdm = !!(me && me.role === 'admin');
+  // أربعة أرقام فقط في أول الصفحة؛ بقية الإجماليات في سطر صغير تحتها
+  tiles = isAdm ? [tiles[4], tiles[5], tiles[6], tiles[3]] : [tiles[4], tiles[5], tiles[1], tiles[3]];
+  $('dash-totals').textContent = isAdm ? 'الإجمالي: ' + S.length + ' مادة — ' + st + ' طالب — ' + se + ' محاضرة' : '';
   var box = $('dash-stats'); box.innerHTML = '';
   tiles.forEach(function (t) {
     var d = el('div', 'stat'); d.style.setProperty('--tc', t[3]);
