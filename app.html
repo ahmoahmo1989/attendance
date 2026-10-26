@@ -499,15 +499,23 @@ catch(e){document.documentElement.dataset.theme='azhar';}
 
   <!-- التقارير -->
   <section id="tab-reports" hidden>
-    <div class="card">
+    <div class="opts" id="rep-tabs" style="grid-template-columns:repeat(2,1fr);margin-top:0">
+      <button type="button" class="opt on" data-pane="card-report" title="تقرير حضور مادة"><i class="ico" data-ic="chart"></i><span>تقرير المادة</span></button>
+      <button type="button" class="opt" data-pane="card-unreg" title="مراجعة غير المسجّلين في الكشف"><i class="ico" data-ic="alert"></i><span>غير المسجّلين</span></button>
+    </div>
+    <div class="card" id="card-unreg" hidden>
       <h2 data-ic="alert">مراجعة غير المسجّلين في الكشف</h2>
-      <p class="hint" style="margin-top:0">طلاب سجّلوا حضورهم بكتابة بياناتهم وليسوا في كشف المادة المختارة في «المادة» بالأسفل.</p>
-      <p><button id="unreg-rep-go" data-ic="refresh" type="button">عرض غير المسجّلين للمادة المختارة</button></p>
-      <p><button id="unreg-rep-all" type="button" data-ic="check">إضافة الكل للكشف</button></p>
+      <p class="hint" style="margin-top:0">طلاب سجّلوا حضورهم بكتابة بياناتهم وليسوا في كشف المادة.</p>
+      <label for="u-subject" data-ic="book">المادة</label>
+      <select id="u-subject"></select>
+      <div class="opts" style="grid-template-columns:repeat(2,1fr)">
+        <button type="button" class="opt" id="unreg-rep-go" title="عرض غير المسجّلين للمادة المختارة"><i class="ico" data-ic="refresh"></i><span>عرض</span></button>
+        <button type="button" class="opt" id="unreg-rep-all" title="إضافة كل غير المسجّلين إلى الكشف"><i class="ico" data-ic="user-plus"></i><span>إضافة الكل للكشف</span></button>
+      </div>
       <ul class="plain" id="unreg-rep-list"></ul>
       <div id="unreg-rep-msg" class="msg" hidden></div>
     </div>
-    <div class="card">
+    <div class="card" id="card-report">
       <h2 data-ic="chart">تقرير حضور مادة</h2>
       <label for="r-subject">المادة</label>
       <select id="r-subject"></select>
@@ -1031,9 +1039,9 @@ async function loadSubjects() {
     c.appendChild(acts);
     box.appendChild(c);
   });
-  ['s-subject', 'r-subject'].forEach(function (id) {
+  ['s-subject', 'r-subject', 'u-subject'].forEach(function (id) {
     var sel = $(id), cur = sel.value; sel.innerHTML = '';
-    subjects.filter(function (s) { return id === 'r-subject' || !s.archived; }).forEach(function (s) {
+    subjects.filter(function (s) { return id !== 's-subject' || !s.archived; }).forEach(function (s) {
       var o = el('option', '', s.name + ' — ' + s.level + (s.term ? ' — ' + s.term : '') + (me.role === 'admin' ? ' (' + s.lecturer_name + ')' : '')); o.value = s.id; sel.appendChild(o);
     });
     if (cur) sel.value = cur;
@@ -1243,6 +1251,13 @@ function showSessPane(id) {
 }
 [].forEach.call(document.querySelectorAll('#sess-tabs .opt'), function (b) { b.onclick = function () { showSessPane(b.dataset.pane); }; });
 
+/* أيقونات أقسام التقارير */
+function showRepPane(id) {
+  ['card-report', 'card-unreg'].forEach(function (k) { $(k).hidden = (k !== id); });
+  [].forEach.call(document.querySelectorAll('#rep-tabs .opt'), function (b) { b.classList.toggle('on', b.dataset.pane === id); });
+}
+[].forEach.call(document.querySelectorAll('#rep-tabs .opt'), function (b) { b.onclick = function () { showRepPane(b.dataset.pane); }; });
+
 /* ============ جدولي ============ */
 var TT_DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 var TT_ORDER = [6, 0, 1, 2, 3, 4, 5]; // الأسبوع يبدأ السبت
@@ -1420,12 +1435,12 @@ async function addAllUnreg(args, cardId, listId, msgId) {
 }
 $('unreg-live-all').onclick = function () { addAllUnreg({ p_session: liveId }, 'unreg-live-card', 'unreg-live-list', 'unreg-live-msg'); };
 $('unreg-rep-all').onclick = function () {
-  var sid = $('r-subject').value;
+  var sid = $('u-subject').value;
   if (!sid) { msg('unreg-rep-msg', 'اختر المادة أولًا.', 'bad'); return; }
   addAllUnreg({ p_subject: sid }, null, 'unreg-rep-list', 'unreg-rep-msg');
 };
 $('unreg-rep-go').onclick = function () {
-  var sid = $('r-subject').value;
+  var sid = $('u-subject').value;
   if (!sid) { msg('unreg-rep-msg', 'اختر المادة أولًا.', 'bad'); return; }
   msg('unreg-rep-msg', 'جارٍ التحميل…');
   loadUnreg({ p_subject: sid }, null, 'unreg-rep-list', 'unreg-rep-msg');
@@ -2063,7 +2078,7 @@ function rateRow(title, meta, rate, thr, indent, onclick) {
 }
 
 function openReport(id) {
-  $('r-subject').value = id; $('r-from').value = ''; $('r-to').value = ''; markQuick('');
+  showRepPane('card-report'); $('r-subject').value = id; $('r-from').value = ''; $('r-to').value = ''; markQuick('');
   document.querySelector('[data-tab="reports"]').click();
   $('r-go').click();
 }
