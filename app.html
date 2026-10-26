@@ -450,11 +450,24 @@ catch(e){document.documentElement.dataset.theme='azhar';}
         <div class="row"><input id="m-seat" inputmode="numeric" placeholder="رقم الجلوس"><button id="m-go" data-ic="check" type="button">سجّله حاضرًا</button></div>
         <div id="m-msg" class="msg" hidden></div>
       </div>
+      <div class="card" id="unreg-live-card" hidden>
+        <h2 data-ic="alert">طلاب غير مسجّلين في الكشف (للمراجعة)</h2>
+        <p class="hint" style="margin-top:0">«إضافة للكشف» تضيف الطالب إلى كشف المادة وتُبقي حضوره. «حذف» يلغي تسجيل الحضور.</p>
+        <ul class="plain" id="unreg-live-list"></ul>
+        <div id="unreg-live-msg" class="msg" hidden></div>
+      </div>
     </div>
   </section>
 
   <!-- التقارير -->
   <section id="tab-reports" hidden>
+    <div class="card">
+      <h2 data-ic="alert">مراجعة غير المسجّلين في الكشف</h2>
+      <p class="hint" style="margin-top:0">طلاب سجّلوا حضورهم بكتابة بياناتهم وليسوا في كشف المادة المختارة في «المادة» بالأسفل.</p>
+      <p><button id="unreg-rep-go" data-ic="refresh" type="button">عرض غير المسجّلين للمادة المختارة</button></p>
+      <ul class="plain" id="unreg-rep-list"></ul>
+      <div id="unreg-rep-msg" class="msg" hidden></div>
+    </div>
     <div class="card">
       <h2 data-ic="chart">تقرير حضور مادة</h2>
       <label for="r-subject">المادة</label>
@@ -1207,6 +1220,40 @@ function showLink(url) {
   ql.appendChild(a); ql.appendChild(document.createElement('br')); ql.appendChild(document.createTextNode(url));
 }
 
+/* مراجعة الطلاب غير المسجّلين في الكشف */
+async function loadUnreg(args, cardId, listId, msgId) {
+  var r = await sb.rpc('list_unregistered', args);
+  var card = cardId ? $(cardId) : null;
+  if (r.error) { if (!card) msg(msgId, /list_unregistered/.test(r.error.message || '') ? 'شغّل ملف review_unregistered.sql في Supabase أولًا.' : errText(r.error), 'bad'); return; }
+  var list = r.data || [], ul = $(listId);
+  if (card) card.hidden = !list.length;
+  ul.innerHTML = '';
+  if (!list.length) { if (!card) { ul.appendChild(el('li', '', 'لا يوجد طلاب غير مسجّلين.')); msg(msgId, ''); } return; }
+  list.forEach(function (u) {
+    var li = el('li', '', u.name + ' (' + u.seat + ')');
+    var add = el('button', '', 'إضافة للكشف'); add.type = 'button'; add.style.marginInlineStart = '8px';
+    var del = el('button', 'danger', 'حذف'); del.type = 'button'; del.style.marginInlineStart = '6px';
+    function act(action) {
+      return async function () {
+        if (action === 'delete' && !window.confirm('حذف حضور ' + u.name + '؟')) return;
+        add.disabled = del.disabled = true;
+        var x = await sb.rpc('resolve_unregistered', { p_id: u.id, p_action: action });
+        if (x.error) { msg(msgId, errText(x.error), 'bad'); add.disabled = del.disabled = false; return; }
+        msg(msgId, action === 'add' ? 'أُضيف ' + u.name + ' إلى الكشف.' : 'حُذف الحضور.', 'ok');
+        loadUnreg(args, cardId, listId, msgId);
+      };
+    }
+    add.onclick = act('add'); del.onclick = act('delete');
+    li.appendChild(add); li.appendChild(del); ul.appendChild(li);
+  });
+}
+$('unreg-rep-go').onclick = function () {
+  var sid = $('r-subject').value;
+  if (!sid) { msg('unreg-rep-msg', 'اختر المادة أولًا.', 'bad'); return; }
+  msg('unreg-rep-msg', 'جارٍ التحميل…');
+  loadUnreg({ p_subject: sid }, null, 'unreg-rep-list', 'unreg-rep-msg');
+};
+
 async function tick() {
   if (!liveId) return;
   var r = await sb.rpc('session_live', { p_session: liveId });
@@ -1218,6 +1265,7 @@ async function tick() {
   var ul = $('recent-att'); ul.innerHTML = '';
   if (!d.recent.length) ul.appendChild(el('li', '', 'لا أحد بعد.'));
   d.recent.forEach(function (n) { ul.appendChild(el('li', '', n)); });
+  if (d.count !== window._unregCount || d.status !== 'active') { window._unregCount = d.count; loadUnreg({ p_session: liveId }, 'unreg-live-card', 'unreg-live-list', 'unreg-live-msg'); }
   if (d.status === 'active') {
     var isCode = d.mode === 'code';
     var url = studentBase() + '?s=' + d.public_id + (isCode ? '' : '&t=' + d.qrToken);
