@@ -735,6 +735,12 @@ catch(e){document.documentElement.dataset.theme='azhar';}
       <button type="button" class="opt" id="pun-tab-del" data-pane="pn-del" title="حذف البصمات" hidden><i class="ico" data-ic="trash"></i><span>حذف البصمات</span></button>
       <button type="button" class="opt" id="pun-tab-set" data-pane="mp-box" title="إعدادات مسؤولي الأقسام" hidden><i class="ico" data-ic="shield-check"></i><span>صلاحية المسؤولين</span></button>
     </div>
+    <div class="subnav" id="pr-sub">
+      <button type="button" class="on" data-prs="main" data-ic="clock">تقرير بصمات الأجهزة</button>
+      <button type="button" data-prs="dept" data-ic="sitemap">حسب القسم</button>
+      <button type="button" data-prs="day" data-ic="calendar">حسب اليوم</button>
+      <button type="button" data-prs="rows" data-ic="list">البصمات</button>
+    </div>
     <div class="card" id="mp-box" hidden data-pane-card="1">
       <label class="opt" id="mp-opt" style="flex-direction:row;justify-content:flex-start;gap:12px;min-height:0;padding:12px 14px;text-align:start" title="عند التفعيل يرى مسؤولو الأقسام تقرير بصمات طلاب أقسامهم ويطبّقونها على مواد أقسامهم."><input id="mp-on" type="checkbox"><i class="ico" data-ic="shield-check"></i><span>السماح لمسؤولي الأقسام برؤية تقرير البصمات (لأقسامهم فقط)</span></label>
       <div id="mp-msg" class="msg" hidden></div>
@@ -771,13 +777,8 @@ catch(e){document.documentElement.dataset.theme='azhar';}
       <div id="pr-msg" class="msg" hidden></div>
     </div>
     <div id="pr-box" hidden>
-      <div class="stats" id="pr-stats"></div>
-      <p class="hint" id="pr-range" style="margin:0 0 12px"></p>
-      <div class="subnav" id="pr-sub">
-        <button type="button" class="on" data-prs="dept" data-ic="sitemap">حسب القسم</button>
-        <button type="button" data-prs="day" data-ic="calendar">حسب اليوم</button>
-        <button type="button" data-prs="rows" data-ic="list">البصمات</button>
-      </div>
+      <div class="stats" id="pr-stats" data-prs="main"></div>
+      <p class="hint" id="pr-range" data-prs="main" style="margin:0 0 12px"></p>
       <div class="card" data-prs="dept">
         <h2 data-ic="sitemap">حسب القسم</h2>
         <p class="hint" style="margin-top:0">اضغط على أي قسم لعرض بصماته فقط.</p>
@@ -1114,13 +1115,15 @@ function navBtn(cls, text, ic, attrs) {
   Object.keys(attrs || {}).forEach(function (k) { b.setAttribute(k, attrs[k]); });
   return b;
 }
-var curPRS = 'dept';
+var curPRS = 'main', punPane = 'pn-report';
 function applyPRS() {
-  [].forEach.call(document.querySelectorAll('#pr-box [data-prs]'), function (c) { if (c.tagName === 'BUTTON') c.classList.toggle('on', c.dataset.prs === curPRS); else c.hidden = (c.dataset.prs !== curPRS); });
+  [].forEach.call(document.querySelectorAll('#tab-punches [data-prs]'), function (c) { if (c.tagName === 'BUTTON') c.classList.toggle('on', c.dataset.prs === curPRS); else c.hidden = (c.dataset.prs !== curPRS); });
+  $('pr-sub').hidden = (punPane !== 'pn-report');
+  if (punPane === 'pn-report') $('pn-report').hidden = (curPRS !== 'main');
 }
 document.addEventListener('click', function (e) {
   var b = e.target.closest && e.target.closest('#pr-sub [data-prs]'); if (!b) return;
-  curPRS = b.dataset.prs; applyPRS();
+  curPRS = b.dataset.prs; applyPRS(); window.scrollTo(0, 0);
 });
 var curHP = 'halls';
 function applyHP() {
@@ -1790,6 +1793,7 @@ async function loadAppSettings() {
 function showPunPane(id) {
   ['pn-report', 'pn-apply', 'mp-box', 'pn-del'].forEach(function (x) { $(x).hidden = (x !== id); });
   $('pr-box').style.display = (id === 'pn-report') ? '' : 'none';
+  punPane = id; applyPRS();
   [].forEach.call(document.querySelectorAll('#pun-tabs .opt'), function (b) { b.classList.toggle('on', b.dataset.pane === id); });
 }
 [].forEach.call(document.querySelectorAll('#pun-tabs .opt'), function (b) { b.onclick = function () { showPunPane(b.dataset.pane); }; });
