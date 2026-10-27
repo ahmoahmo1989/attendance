@@ -403,10 +403,11 @@ catch(e){document.documentElement.dataset.theme='azhar';}
           <label for="f-lecturer">المحاضر</label><select id="f-lecturer"></select>
         </div>
       </div>
-      <label for="f-file">كشف الطلاب (Excel أو CSV: رقم الجلوس والاسم)</label>
-      <input id="f-file" type="file" accept=".xlsx,.xls,.csv">
-      <label for="f-paste">أو الصق الأسماء (رقم الجلوس ثم الاسم في كل سطر)</label>
-      <textarea id="f-paste" placeholder="1001	أحمد علي&#10;1002	سارة محمود"></textarea>
+      <label for="f-file">كشف الطلاب (Excel أو PDF أو CSV)</label>
+      <input id="f-file" type="file" accept=".xlsx,.xls,.csv,.pdf,application/pdf">
+      <p class="hint" style="margin:4px 0 8px">ترتيب الأعمدة في الكشف: <b>المسلسل — اسم الطالب — رقم الجلوس</b>. ملف PDF لازم يكون نصيًا (غير ممسوح ضوئيًا).</p>
+      <label for="f-paste">أو الصق الأسماء (المسلسل ثم الاسم ثم رقم الجلوس في كل سطر)</label>
+      <textarea id="f-paste" placeholder="1	أحمد علي	1001&#10;2	سارة محمود	1002"></textarea>
       <div id="roster-preview" hidden>
         <p class="hint" id="roster-count"></p>
         <div class="scroll"><table><thead><tr><th>رقم الجلوس</th><th>الاسم</th></tr></thead><tbody id="roster-rows"></tbody></table></div>
@@ -1401,11 +1402,14 @@ function normSeat(s) {
     .replace(/[۰-۹]/g, function (d) { return String(d.charCodeAt(0) - 0x06F0); }).replace(/\s+/g, '').toUpperCase();
 }
 
+// الترتيب المعتمد للكشوف (Excel أو PDF أو نص ملصق): المسلسل — اسم الطالب — رقم الجلوس.
+// ويقبل أيضًا الكشف القديم من عمودين (رقم الجلوس والاسم بأي ترتيب).
 function rowsToStudents(rows) {
   var cand = [];
   rows.forEach(function (r) {
     var cells = (r || []).map(cellStr).filter(function (x) { return x !== ''; });
     if (cells.length < 2) return;
+    if (cells.length >= 3 && isNum(cells[0]) && !isNum(cells[1]) && isNum(cells[2])) { cand.push({ seat: cells[2], name: cells[1] }); return; }
     var a = cells[0], b = cells[1];
     if (!isNum(a) && isNum(b)) { var t = a; a = b; b = t; }
     cand.push({ seat: a, name: b });
@@ -1416,6 +1420,60 @@ function rowsToStudents(rows) {
     dropped = cand.length - kept.length; cand = kept;
   }
   return { list: cand, dropped: dropped };
+}
+
+// قراءة كشف من PDF نصي (غير ممسوح ضوئيًا) بمكتبة pdf.js تُحمَّل عند الحاجة فقط
+var PDFJS_VER = '3.11.174', PDFJS_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/' + PDFJS_VER + '/';
+async function loadPdfJs() {
+  if (window.pdfjsLib && window.pdfjsLib.__ready) return window.pdfjsLib;
+  if (!window.pdfjsLib) await new Promise(function (res, rej) { var t = document.createElement('script'); t.src = PDFJS_BASE + 'pdf.min.js'; t.onload = res; t.onerror = function () { rej(new Error('تعذّر تحميل مكتبة قراءة PDF.')); }; document.head.appendChild(t); });
+  var w = await fetch(PDFJS_BASE + 'pdf.worker.min.js'); if (!w.ok) throw new Error('تعذّر تحميل مكتبة قراءة PDF.');
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(new Blob([await w.text()], { type: 'text/javascript' }));
+  window.pdfjsLib.__ready = true; return window.pdfjsLib;
+}
+async function pdfToRows(buf) {
+  var lib = await loadPdfJs(), doc = await lib.getDocument({ data: buf }).promise, lines = [], total = 0, ar = /[\u0600-\u06FF]/;
+  for (var pn = 1; pn <= doc.numPages; pn++) {
+    var tc = await (await doc.getPage(pn)).getTextContent(), items = [];
+    tc.items.forEach(function (it) { if (String(it.str).trim() !== '') items.push({ t: String(it.str).trim().normalize('NFKC'), x: it.transform[4], w: it.width || 0, y: it.transform[5], h: it.height || Math.abs(it.transform[3]) || 10 }); });
+    total += items.length;
+    items.sort(function (a, b) { return (b.y - a.y) || (a.x - b.x); });
+    var pl = [];   // أسطر الصفحة: عناصر قريبة رأسيًا
+    items.forEach(function (it) { var ln = pl[pl.length - 1]; if (ln && Math.abs(ln.y - it.y) <= 3.5) ln.items.push(it); else pl.push({ y: it.y, items: [it] }); });
+    pl.forEach(function (ln) { lines.push(ln.items); });
+  }
+  if (!total) throw new Error('هذا الـ PDF صورة (ممسوح ضوئيًا) ولا يحتوي نصًا. استخدم PDF نصي أو Excel.');
+  // كل سطر → خلايا (عناصر متجاورة تُدمج في خلية)، بترتيب من اليمين لليسار
+  var rows = lines.map(function (items) {
+    items.sort(function (a, b) { return a.x - b.x; });
+    var cells = [];
+    items.forEach(function (it) {
+      var c = cells[cells.length - 1];
+      if (c && it.x - c.end <= 10) { c.parts.push(it); c.end = it.x + it.w; } else cells.push({ parts: [it], x: it.x, end: it.x + it.w });
+    });
+    return cells.map(function (c) {
+      var rtl = c.parts.some(function (p) { return ar.test(p.t); });
+      var ps = c.parts.slice().sort(function (a, b) { return rtl ? b.x - a.x : a.x - b.x; });
+      var out = '';   // حروف متجاورة (بلا فجوة) تُلصق، وفجوة الكلمة تصبح مسافة
+      ps.forEach(function (p, i) {
+        if (i) { var q = ps[i - 1], gap = rtl ? (q.x - (p.x + p.w)) : (p.x - (q.x + q.w)); out += gap > 0.2 * (p.h || 10) ? ' ' : ''; }
+        out += p.t;
+      });
+      return { t: out, x: c.x };
+    });
+  });
+  // اتجاه الجدول: من ترويسة المسلسل/رقم الجلوس، وإلا بتصويت الأرقام (المسلسل أصغر من رقم الجلوس)
+  var rtlVotes = 0, ltrVotes = 0, dir = 0;
+  rows.forEach(function (r) {
+    var ser = r.filter(function (c) { return /^(ال)?مسلسل$|^م$|^م$/.test(c.t.replace(/\s/g, '')); })[0], seat = r.filter(function (c) { return /رقم\s*الجلوس|الجلوس/.test(c.t); })[0];
+    if (!dir && ser && seat) dir = ser.x > seat.x ? 1 : -1;
+    if (r.length >= 3) {
+      var rd = r.slice().sort(function (a, b) { return b.x - a.x; }), f = rd[0].t.replace(/\D/g, ''), l = rd[rd.length - 1].t.replace(/\D/g, '');
+      if (NUM.test(rd[0].t) && NUM.test(rd[rd.length - 1].t) && f && l) { if (+f < +l) rtlVotes++; else if (+f > +l) ltrVotes++; }
+    }
+  });
+  if (!dir) dir = ltrVotes > rtlVotes ? -1 : 1;
+  return rows.map(function (r) { return r.slice().sort(function (a, b) { return dir > 0 ? b.x - a.x : a.x - b.x; }).map(function (c) { return c.t; }); });
 }
 
 function setStudents(res, source) {
@@ -1429,21 +1487,26 @@ function setStudents(res, source) {
   if (dup) txt += ' يوجد ' + dup + ' رقم جلوس مكرر وسيُحفظ مرة واحدة فقط.';
   $('roster-count').textContent = txt;
   $('roster-preview').hidden = !students.length;
-  if (!students.length) msg('roster-msg', 'لم أجد أي طالب في الملف. تأكد أن فيه عمودين: رقم الجلوس والاسم.', 'bad'); else msg('roster-msg', '');
+  if (!students.length) msg('roster-msg', 'لم أجد أي طالب في الملف. تأكد من الترتيب: المسلسل — اسم الطالب — رقم الجلوس.', 'bad'); else msg('roster-msg', '');
 }
 
 $('f-file').onchange = function () {
   var f = this.files && this.files[0]; if (!f) return;
   $('f-paste').value = '';
-  var isCsv = /\.csv$/i.test(f.name), reader = new FileReader();
+  var isCsv = /\.csv$/i.test(f.name), isPdf = /\.pdf$/i.test(f.name) || f.type === 'application/pdf', reader = new FileReader();
   reader.onerror = function () { msg('roster-msg', 'تعذّرت قراءة الملف.', 'bad'); };
-  reader.onload = function () {
+  reader.onload = async function () {
     try {
+      if (isPdf) {
+        msg('roster-msg', 'جارٍ قراءة ملف PDF…');
+        var prow = await pdfToRows(new Uint8Array(reader.result));
+        setStudents(rowsToStudents(prow), f.name); return;
+      }
       if (typeof XLSX === 'undefined') { msg('roster-msg', 'تعذّر تحميل مكتبة قراءة Excel. الصق الأسماء في الخانة بالأسفل بدلًا من ذلك.', 'bad'); return; }
       var wb = XLSX.read(reader.result, { type: isCsv ? 'string' : 'array' });
       var rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: false, defval: '' });
       setStudents(rowsToStudents(rows), f.name);
-    } catch (e) { msg('roster-msg', 'الملف غير مفهوم: ' + e.message, 'bad'); }
+    } catch (e) { students = []; $('roster-preview').hidden = true; msg('roster-msg', /PDF|مكتبة/.test(e.message) ? e.message : 'الملف غير مفهوم: ' + e.message, 'bad'); }
   };
   if (isCsv) reader.readAsText(f, 'UTF-8'); else reader.readAsArrayBuffer(f);
 };
