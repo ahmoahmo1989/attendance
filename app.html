@@ -844,6 +844,16 @@ catch(e){document.documentElement.dataset.theme='azhar';}
       <button id="a-user-add" data-ic="user-plus" class="primary" type="button">إضافة مستخدم</button>
     </div>
     <div class="card" data-sub="users">
+      <h2 data-ic="upload">إضافة محاضرين من ملف Excel</h2>
+      <p class="hint" style="margin-top:0">أعمدة الملف: <b>الإيميل — الاسم — الصلاحية — القسم</b>. الصلاحية: محاضر أو مسؤول أقسام أو مدير النظام (الفارغ = محاضر). القسم اختياري، ويُكتب كما في «الأقسام» (أو بمساره الكامل: القسم / التخصص). من كان بريده مضافًا من قبل تُحدَّث بياناته.</p>
+      <p><button id="ux-tpl" type="button" data-ic="download">تحميل القالب</button></p>
+      <input id="ux-file" type="file" accept=".xlsx,.xls,.csv">
+      <p class="hint" id="ux-sum" hidden></p>
+      <div id="ux-prev" class="scroll" hidden><table><thead><tr><th>السطر</th><th>الإيميل</th><th>الاسم</th><th>الصلاحية</th><th>القسم</th><th>النتيجة</th></tr></thead><tbody id="ux-rows"></tbody></table></div>
+      <button id="ux-go" data-ic="check" class="primary" type="button" hidden>استيراد المستخدمين</button>
+      <div id="ux-msg" class="msg" hidden></div>
+    </div>
+    <div class="card" data-sub="users">
       <h2 data-ic="sitemap">أقسام المسؤولين</h2>
       <p class="hint" style="margin-top:0">حدّد لكل «مسؤول أقسام» الأقسام التي يديرها (الأقسام الفرعية تدخل تلقائيًا). يرى ويدير مواد هذه الأقسام فقط، ويضيف مواد وينقلها بين المحاضرين، ولا يستطيع الحذف.</p>
       <div id="mgr-list"></div>
@@ -2460,6 +2470,133 @@ $('a-user-add').onclick = async function () {
   var r = await sb.from('allowed_users').upsert({ email: email, full_name: name, role: $('a-role').value, department_id: $('a-udept').value || null });
   if (r.error) msg('a-msg', errText(r.error), 'bad');
   else { $('a-email').value = ''; $('a-name').value = ''; msg('a-msg', 'تمت الإضافة. اطلب منه الدخول وإنشاء حساب بنفس البريد.', 'ok'); loadAdmin(); }
+};
+
+/* ===== إضافة المحاضرين والمستخدمين من Excel ===== */
+var UX_ROLE_AR = { lecturer: 'محاضر', manager: 'مسؤول أقسام', admin: 'مدير النظام' };
+var uxItems = null;
+function uxRoleOf(t) {
+  var k = nrm(t);
+  if (!k) return 'lecturer';
+  if (/مدير|admin/.test(k) && !/اقسام|manager/.test(k)) return 'admin';
+  if (/مسوول|مسول|مسؤول|مشرف|manager/.test(k)) return 'manager';
+  if (/محاضر|مدرس|دكتور|lecturer/.test(k)) return 'lecturer';
+  return null;
+}
+function uxParse(rows) {
+  var col = { email: 0, name: 1, role: 2, dept: 3 }, start = 0;
+  for (var i = 0; i < Math.min(rows.length, 15); i++) {
+    var cells = (rows[i] || []).map(function (c) { return nrm(c); });
+    var has = cells.some(function (c) { return /ايميل|بريد|email|mail/.test(c); });
+    if (has) {
+      cells.forEach(function (c, j) {
+        if (/ايميل|بريد|email|mail/.test(c)) col.email = j;
+        else if (/صلاحيه|صلاحية|role/.test(c)) col.role = j;
+        else if (/قسم|dept|department/.test(c)) col.dept = j;
+        else if (/اسم|name/.test(c)) col.name = j;
+      });
+      start = i + 1; break;
+    }
+  }
+  var out = [];
+  for (var r = start; r < rows.length; r++) {
+    var row = rows[r] || [], g = function (j) { return String(row[j] == null ? '' : row[j]).replace(/\s+/g, ' ').trim(); };
+    var it = { n: r + 1, email: g(col.email).toLowerCase(), name: g(col.name), roleTxt: g(col.role), dept: g(col.dept) };
+    if (!it.email && !it.name && !it.roleTxt && !it.dept) continue;
+    out.push(it);
+  }
+  return out;
+}
+function uxAnalyze(items, tree, existing, ownEmail) {
+  var byPath = {}, byName = {}, seen = {};
+  tree.forEach(function (d) { byPath[nrm(d.path)] = d; (byName[nrm(d.name)] = byName[nrm(d.name)] || []).push(d); });
+  return items.map(function (it) {
+    var r = { n: it.n, email: it.email, name: it.name, roleTxt: it.roleTxt, dept: it.dept, role: null, deptId: null, status: 'ok', note: '' };
+    var fail = function (t) { r.status = 'err'; r.note = t; return r; };
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(it.email)) return fail('البريد غير صحيح');
+    if (!it.name) return fail('الاسم فارغ');
+    if (ownEmail && it.email === ownEmail) return fail('لا يمكن تعديل صلاحيتك من هنا');
+    if (seen[it.email]) return fail('البريد مكرر في الملف (السطر ' + seen[it.email] + ')');
+    r.role = uxRoleOf(it.roleTxt);
+    if (!r.role) return fail('الصلاحية غير مفهومة (محاضر / مسؤول أقسام / مدير النظام)');
+    if (it.dept) {
+      var k = nrm(it.dept).replace(/^قسم /, ''), hit = byPath[nrm(it.dept)] || byPath[k];
+      if (!hit) {
+        var h = byName[nrm(it.dept)] || byName[k] || [];
+        if (h.length > 1) return fail('اسم القسم يتكرر — اكتب مساره الكامل (القسم / التخصص)');
+        hit = h[0];
+      }
+      if (!hit) return fail('القسم غير موجود');
+      r.deptId = hit.id; r.deptName = hit.path;
+    }
+    seen[it.email] = it.n;
+    r.status = 'ok'; r.note = existing[it.email] ? 'تحديث بيانات مستخدم مضاف' : 'مستخدم جديد';
+    if (r.role === 'admin') r.note += ' — صلاحية مدير النظام!';
+    return r;
+  });
+}
+function renderUx() {
+  var tb = $('ux-rows'); tb.innerHTML = '';
+  $('ux-prev').hidden = !uxItems; $('ux-sum').hidden = !uxItems; $('ux-go').hidden = !uxItems;
+  if (!uxItems) return;
+  var ok = 0, bad = 0;
+  uxItems.forEach(function (r) {
+    var tr = el('tr');
+    [String(r.n), r.email, r.name, r.role ? UX_ROLE_AR[r.role] : (r.roleTxt || '—'), r.deptName || r.dept || '—'].forEach(function (v) { tr.appendChild(el('td', '', v)); });
+    var td = el('td', '', r.note); if (r.status === 'err') { td.style.color = '#b91c1c'; bad++; } else { if (r.role === 'admin') td.style.color = '#b45309'; ok++; } tr.appendChild(td); tb.appendChild(tr);
+  });
+  $('ux-sum').textContent = 'جاهز للاستيراد: ' + ok + ' — مرفوض: ' + bad;
+  $('ux-go').disabled = !ok;
+}
+$('ux-file').onchange = function () {
+  var f = this.files && this.files[0]; uxItems = null; renderUx(); msg('ux-msg', '');
+  if (!f) return;
+  var isCsv = /\.csv$/i.test(f.name), rd = new FileReader();
+  rd.onerror = function () { msg('ux-msg', 'تعذّرت قراءة الملف.', 'bad'); };
+  rd.onload = async function () {
+    try {
+      if (typeof XLSX === 'undefined') throw new Error('تعذّر تحميل مكتبة قراءة Excel.');
+      var wb = XLSX.read(rd.result, { type: isCsv ? 'string' : 'array' });
+      var rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: false, defval: '' });
+      var items = uxParse(rows);
+      if (!items.length) throw new Error('الملف لا يحتوي صفوفًا.');
+      var existing = {};
+      var au = await sb.from('allowed_users').select('email'); (au.data || []).forEach(function (a) { existing[String(a.email || '').toLowerCase()] = 1; });
+      var own = ((await sb.auth.getUser()).data.user || {}).email || '';
+      uxItems = uxAnalyze(items, deptTree(), existing, String(own).toLowerCase()); renderUx();
+    } catch (e) { uxItems = null; renderUx(); msg('ux-msg', errText(e), 'bad'); }
+  };
+  if (isCsv) rd.readAsText(f, 'UTF-8'); else rd.readAsArrayBuffer(f);
+};
+$('ux-tpl').onclick = function () {
+  var help = [
+    ['الإيميل', 'بريد المحاضر. يدخل بعدها صفحة الدخول ويضغط «إنشاء حساب» بنفس البريد.', 'ahmed@example.com'],
+    ['الاسم', 'اسم المستخدم كما يظهر في النظام.', 'د. أحمد محمد'],
+    ['الصلاحية', 'محاضر أو مسؤول أقسام أو مدير النظام (قائمة منسدلة). الفارغ = محاضر.', 'محاضر'],
+    ['القسم', 'اختياري. اسم القسم كما في «الأقسام» أو مساره الكامل (القسم / التخصص). لازم يكون موجودًا.', 'المكتبات والمعلومات وتكنولوجيا التعليم'],
+    ['ملاحظات', 'لتحديد الأقسام التي يديرها «مسؤول الأقسام» استخدم بطاقة «أقسام المسؤولين» بعد الاستيراد. لا يمكن تعديل صلاحيتك أنت من هنا.', '']];
+  exportStyled({ sheetName: 'المستخدمون', title: 'قالب إضافة المحاضرين والمستخدمين', fileName: 'قالب إضافة المحاضرين', head: ['الإيميل', 'الاسم', 'الصلاحية', 'القسم'], rows: [],
+    widths: [34, 30, 16, 34], headH: 34, validations: [{ col: 2, list: ['محاضر', 'مسؤول أقسام', 'مدير النظام'] }], msgId: 'ux-msg',
+    extra: [{ sheetName: 'التعليمات', title: 'طريقة تعبئة القالب', head: ['الحقل', 'ماذا تكتب', 'مثال'], rows: help, widths: [20, 80, 38], left: [1], headH: 30, wrap: true }] });
+};
+$('ux-go').onclick = async function () {
+  if (!uxItems) return;
+  var list = uxItems.filter(function (r) { return r.status === 'ok'; });
+  if (!list.length) { msg('ux-msg', 'لا توجد صفوف صالحة للاستيراد.', 'bad'); return; }
+  var nAdm = list.filter(function (r) { return r.role === 'admin'; }).length;
+  if (nAdm && !window.confirm('سيُمنح ' + nAdm + ' مستخدم صلاحية «مدير النظام». هل أنت متأكد؟')) return;
+  $('ux-go').disabled = true; msg('ux-msg', 'جارٍ الاستيراد…');
+  try {
+    var rows = list.map(function (r) { return { email: r.email, full_name: r.name, role: r.role, department_id: r.deptId || null }; });
+    for (var i = 0; i < rows.length; i += 200) {
+      var x = await sb.from('allowed_users').upsert(rows.slice(i, i + 200));
+      if (x.error) throw x.error;
+    }
+    var bad = uxItems.length - list.length;
+    uxItems = null; $('ux-file').value = ''; renderUx();
+    msg('ux-msg', 'تمت إضافة/تحديث ' + list.length + ' مستخدم' + (bad ? ' (تم تجاهل ' + bad + ' صف مرفوض)' : '') + '. اطلب منهم الدخول وإنشاء حساب بنفس البريد.', 'ok');
+    loadAdmin();
+  } catch (e) { msg('ux-msg', 'تعذّر الاستيراد: ' + errText(e), 'bad'); $('ux-go').disabled = false; }
 };
 
 /* ============ الجدول الرئيسي: تسكين المواعيد وكشف التعارضات ============ */
