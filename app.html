@@ -960,7 +960,12 @@ catch(e){document.documentElement.dataset.theme='azhar';}
       <input id="imp-file" type="file" accept=".xlsx,.xls,.csv">
       <div class="row">
         <div><label for="imp-device">الجهاز (اختياري — يُستخدم لو الملف بدون عمود رقم الجهاز)</label><select id="imp-device"></select></div>
-        <div><label for="imp-method">تحويل كود الطالب</label>
+        <div><label for="imp-col">عمود المطابقة في الملف</label>
+          <select id="imp-col">
+            <option value="emp">رقم الموظف (الرقم الأكاديمي)</option>
+            <option value="code">كود الموظف</option>
+          </select></div>
+        <div><label for="imp-method">تحويل الرقم</label>
           <select id="imp-method">
             <option value="auto">تلقائي (الأنسب لكشوفك)</option>
             <option value="strip">حذف الأصفار من اليسار</option>
@@ -975,7 +980,7 @@ catch(e){document.documentElement.dataset.theme='azhar';}
       </div>
       <div id="imp-preview" hidden>
         <ul class="plain" id="imp-sum"></ul>
-        <div class="scroll"><table><thead><tr><th>الكود في الملف</th><th>الرقم الأكاديمي بعد التحويل</th><th>الجهاز</th><th>الوقت (القاهرة)</th></tr></thead><tbody id="imp-rows"></tbody></table></div>
+        <div class="scroll"><table><thead><tr><th>الرقم في الملف</th><th>الرقم الأكاديمي بعد التحويل</th><th>الجهاز</th><th>الوقت (القاهرة)</th></tr></thead><tbody id="imp-rows"></tbody></table></div>
         <button id="imp-go" data-ic="upload" class="primary" type="button">استيراد البصمات</button>
       </div>
       <ul class="plain" id="imp-res"></ul>
@@ -3640,7 +3645,7 @@ function splitDate(s) {
 function hdrIdx(hdr, re) { for (var i = 0; i < hdr.length; i++) if (re.test(hdr[i])) return i; return -1; }
 
 // يقرأ تقرير ADTime التفصيلي (الوقت 1..12) أو سجل البصمات (صف لكل بصمة)
-function parsePunchSheet(rows) {
+function parsePunchSheet(rows, colMode) {
   var reCode = /كود|رقم الموظف|رقم المستخدم|رقم الطالب|user\s*id|employee|^id$/i;
   var hi = -1, hdr = [], r, h;
   for (r = 0; r < Math.min(rows.length, 15); r++) {
@@ -3648,7 +3653,10 @@ function parsePunchSheet(rows) {
     if (h.some(function (c) { return reCode.test(c); }) && h.some(function (c) { return /تاريخ|date|وقت|time/i.test(c); })) { hi = r; hdr = h; break; }
   }
   if (hi < 0) throw new Error('لم أجد صف العناوين. المتوقع أعمدة مثل: كود الموظف، تاريخ، الوقت 1… أو سجل بصمات فيه الكود والوقت.');
-  var cCode = hdrIdx(hdr, reCode);
+  var cCode = -1;
+  if (colMode === 'code') cCode = hdrIdx(hdr, /كود/);
+  else cCode = hdrIdx(hdr, /رقم\s*الموظف|الرقم\s*الأكاديمي|الرقم\s*الاكاديمي|رقم\s*الطالب|رقم\s*أكاديمي/);
+  if (cCode < 0) cCode = hdrIdx(hdr, reCode);
   var cDev = hdrIdx(hdr, /رقم الماكينة|رقم الجهاز|^الماكينة$|^الجهاز$|machine|device/i);
   var timeCols = []; hdr.forEach(function (c, i) { if (/^(الوقت|time)\s*\d+$/i.test(c)) timeCols.push(i); });
   var cDT = hdrIdx(hdr, /(تاريخ|date).*(وقت|time)|(وقت|time).*(تاريخ|date)|وقت (البصمة|التسجيل|الحضور)|^datetime$/i);
@@ -3799,7 +3807,7 @@ $('imp-file').onchange = function () {
       if (typeof XLSX === 'undefined') throw new Error('تعذّر تحميل مكتبة قراءة Excel.');
       var wb = XLSX.read(reader.result, { type: isCsv ? 'string' : 'array' });
       var rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: false, defval: '' });
-      imp = { parsed: parsePunchSheet(rows), file: f.name, rates: null, students: 0, punches: [] };
+      imp = { rows: rows, parsed: parsePunchSheet(rows, $('imp-col').value), file: f.name, rates: null, students: 0, punches: [] };
       msg('imp-msg', 'جارٍ فحص الأكواد مع كشوف المواد…');
       await impCheckRoster();
       msg('imp-msg', '');
@@ -3811,6 +3819,11 @@ $('imp-file').onchange = function () {
 $('imp-device').onchange = renderImpPreview;
 $('imp-subject').onchange = renderImpPreview;
 $('imp-method').onchange = renderImpPreview;
+$('imp-col').onchange = async function () {
+  if (!imp || !imp.rows) return;
+  try { imp.parsed = parsePunchSheet(imp.rows, this.value); imp.rates = null; msg('imp-msg', 'جارٍ فحص الأرقام مع كشوف المواد…'); await impCheckRoster(); msg('imp-msg', ''); renderImpPreview(); }
+  catch (e) { msg('imp-msg', errText(e), 'bad'); }
+};
 
 $('imp-go').onclick = async function () {
   if (!imp || !imp.punches.length) return;
