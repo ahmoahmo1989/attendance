@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>الجدول الدراسي — كلية التربية، جامعة الأزهر</title>
+<link rel="icon" href="logo-azhar.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@700&family=Cairo:wght@400;600;700;800&display=swap">
+<style>
+  :root { --bg:#f2f5f1; --card:#fff; --ink:#15302a; --muted:#5a6e67; --line:#dbe4de; --brand:#0b6b4f; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0d1614; --card:#15231f; --ink:#e6f1ee; --muted:#9db3ad; --line:#29403a; --brand:#3ddc97; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:'Cairo',system-ui,sans-serif; background:var(--bg); color:var(--ink); }
+  .banner { background:linear-gradient(155deg,#083d2e,#0e6b50); color:#fff; text-align:center; padding:18px 14px 20px; border-radius:0 0 26px 26px; }
+  .banner .logos { display:flex; justify-content:center; gap:14px; margin-bottom:8px; }
+  .banner img { width:72px; height:72px; border-radius:50%; background:#fff; padding:2px; object-fit:contain; }
+  .banner .uni { font-family:'Amiri','Cairo',serif; font-size:1.25rem; font-weight:700; color:#f1d58a; margin:0; }
+  .banner .fac { margin:0; font-size:.92rem; opacity:.92; }
+  main { max-width:1100px; margin:0 auto; padding:16px; }
+  h1 { font-size:1.2rem; text-align:center; margin:6px 0 14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:12px; overflow-x:auto; }
+  table { border-collapse:collapse; width:100%; min-width:640px; }
+  th, td { border:1px solid var(--line); padding:8px; text-align:center; vertical-align:middle; font-size:.9rem; }
+  th { background:var(--brand); color:#fff; }
+  td b { display:block; }
+  td .s + .s { border-top:1px dashed var(--line); margin-top:6px; padding-top:6px; }
+  .small { color:var(--muted); font-size:.82rem; }
+  .msg { text-align:center; color:var(--muted); padding:30px 10px; }
+  button { font:inherit; padding:8px 16px; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--ink); cursor:pointer; }
+  .bar { text-align:center; margin:12px 0; }
+  @media print { .banner, .bar { display:none; } body { background:#fff; } }
+</style>
+</head>
+<body>
+<div class="banner">
+  <div class="logos"><img src="logo-azhar.png" alt="جامعة الأزهر"><img src="logo-faculty.png" alt="كلية التربية"></div>
+  <p class="uni">جامعة الأزهر</p><p class="fac">كلية التربية بنين بالقاهرة</p>
+</div>
+<main>
+  <h1 id="title">الجدول الدراسي</h1>
+  <div class="card"><div id="out" class="msg">جارٍ التحميل…</div></div>
+  <p class="bar"><button id="print" hidden>طباعة الجدول</button></p>
+  <p class="small" style="text-align:center">الجدول قابل للتعديل من إدارة الكلية، فتأكد من آخر نسخة قبل الاعتماد عليه.</p>
+</main>
+<script src="config.js"></script>
+<script>
+var CFG = window.APP_CONFIG || {};
+var TOKEN = (new URLSearchParams(location.search).get('t') || '');
+var DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'], ORDER = [6, 0, 1, 2, 3, 4, 5];
+function $(id) { return document.getElementById(id); }
+function el(t, c, x) { var e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; }
+function mins(t) { var p = t.split(':'); return +p[0] * 60 + +p[1]; }
+function fmt(m) { m = m % 1440; var h = Math.floor(m / 60), mi = m % 60, ap = h < 12 ? 'ص' : 'م'; h = h % 12 || 12; return h + ':' + (mi < 10 ? '0' : '') + mi + ' ' + ap; }
+function rpc(fn, args) {
+  var headers = { 'Content-Type': 'application/json', 'apikey': CFG.SUPABASE_ANON_KEY };
+  if (/^eyJ/.test(CFG.SUPABASE_ANON_KEY || '')) headers['Authorization'] = 'Bearer ' + CFG.SUPABASE_ANON_KEY;
+  return fetch(CFG.SUPABASE_URL + '/rest/v1/rpc/' + fn, { method: 'POST', headers: headers, body: JSON.stringify(args) })
+    .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error((j && j.message) || 'خطأ'); return j; }); });
+}
+function fail(t) { $('out').className = 'msg'; $('out').textContent = t; }
+(async function () {
+  if (!/^[A-Za-z0-9]{8,64}$/.test(TOKEN)) return fail('الرابط غير صحيح.');
+  var d;
+  try { d = await rpc('get_public_schedule', { p_token: TOKEN }); } catch (e) { return fail('تعذّر تحميل الجدول. حاول لاحقًا.'); }
+  if (!d) return fail('هذا الجدول غير متاح أو تم إيقاف رابطه.');
+  $('title').textContent = d.title; document.title = d.title;
+  var rows = d.rows || [];
+  if (!rows.length) return fail('لا توجد مواعيد منشورة بعد.');
+  var days = ORDER.filter(function (x) { return x !== 5 || rows.some(function (r) { return r.weekday === 5; }); });
+  var times = []; rows.forEach(function (r) { if (times.indexOf(r.start) < 0) times.push(r.start); }); times.sort();
+  var tb = el('table'), hd = el('tr'); hd.appendChild(el('th', '', 'الفترة'));
+  days.forEach(function (x) { hd.appendChild(el('th', '', DAYS[x])); }); tb.appendChild(hd);
+  times.forEach(function (tm) {
+    var tr = el('tr'); tr.appendChild(el('th', '', fmt(mins(tm))));
+    days.forEach(function (x) {
+      var td = el('td');
+      rows.filter(function (r) { return r.weekday === x && r.start === tm; }).forEach(function (r) {
+        var b = el('div', 's'); b.appendChild(el('b', '', r.subject));
+        if (r.lecturer) b.appendChild(el('div', '', r.lecturer));
+        if (r.hall) b.appendChild(el('div', '', 'القاعة: ' + r.hall));
+        b.appendChild(el('div', 'small', fmt(mins(r.start)) + ' → ' + fmt(mins(r.start) + (r.minutes || 90))));
+        td.appendChild(b);
+      });
+      tr.appendChild(td);
+    });
+    tb.appendChild(tr);
+  });
+  $('out').className = ''; $('out').innerHTML = ''; $('out').appendChild(tb);
+  $('print').hidden = false; $('print').onclick = function () { window.print(); };
+})();
+</script>
+</body>
+</html>

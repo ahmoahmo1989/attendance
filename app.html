@@ -657,6 +657,26 @@ catch(e){document.documentElement.dataset.theme='azhar';}
       <div class="scroll"><table id="sc-grid"></table></div>
     </div>
     <div class="card">
+      <h2 data-ic="upload">استيراد جدول من Excel</h2>
+      <p class="hint" style="margin-top:0">أعمدة الملف: المادة، الفرقة، الفصل، اليوم، وقت البدء، المدة (دقيقة)، القاعة. الفرقة والفصل والمدة والقاعة اختيارية، لكن اكتب الفرقة والفصل لو في أكثر من مادة بنفس الاسم. لو المادة لها موعد قائم يُحدَّث بدل ما يتكرر.</p>
+      <div id="sx-msg" class="msg" hidden></div>
+      <p><button id="sx-tpl" type="button" data-ic="download">تحميل القالب</button></p>
+      <input id="sx-file" type="file" accept=".xlsx,.xls,.csv">
+      <div id="sx-prev" hidden>
+        <p class="hint" id="sx-sum"></p>
+        <div class="scroll"><table><thead><tr><th>السطر</th><th>المادة</th><th>اليوم</th><th>البدء</th><th>القاعة</th><th>النتيجة</th></tr></thead><tbody id="sx-rows"></tbody></table></div>
+        <label class="opt" style="flex-direction:row;justify-content:flex-start;gap:10px;min-height:0;padding:8px 12px;text-align:start"><input id="sx-conf" type="checkbox"> <span>استورد المواعيد المتعارضة أيضًا</span></label>
+        <p><button id="sx-go" type="button" class="primary" data-ic="check">اعتماد الاستيراد</button></p>
+      </div>
+    </div>
+    <div class="card">
+      <h2 data-ic="link">نشر الجدول للطلاب</h2>
+      <p class="hint" style="margin-top:0">اختر في «الجدول الأسبوعي» عرض «الفرقة والقسم» وحدد الفرقة، ثم انشرها. الرابط للقراءة فقط بدون تسجيل دخول، ويعرض الجدول الحالي دائمًا فيتحدّث تلقائيًا مع أي تعديل. تقدر توقف الرابط في أي وقت.</p>
+      <div id="sp-msg" class="msg" hidden></div>
+      <p><button id="sp-pub" type="button" class="primary" data-ic="link">نشر جدول الفرقة المعروضة</button></p>
+      <ul class="plain" id="sp-list"></ul>
+    </div>
+    <div class="card">
       <h2 data-ic="list">كل المواعيد</h2>
       <div class="row"><div><label for="sc-q">بحث</label><input id="sc-q" placeholder="مادة، محاضر، قاعة…"></div></div>
       <p><button id="sc-xl-list" type="button" data-ic="download">تصدير القائمة</button></p>
@@ -2400,6 +2420,7 @@ async function loadSchedule(keepMsg) {
   sh.value = hc;
   schFindConflicts();
   renderSchConf(); fillSchTargets(); renderSchGrid(); renderSchRows();
+  if (!keepMsg) loadShares();
 }
 
 function renderSchConf() {
@@ -2595,6 +2616,171 @@ $('sc-xl-list').onclick = function () {
   });
   exportStyled({ sheetName: 'المواعيد', title: 'جدول المواعيد العام   (عدد المواعيد: ' + rows.length + ')', fileName: 'جدول المواعيد العام', head: head, rows: rows,
     widths: [11, 11, 11, 30, 26, 16, 14, 24, 16, 12, 12, 22], left: [3, 4, 7], headH: 32, msgId: 'sc-msg' });
+};
+
+
+/* ===== استيراد الجدول من Excel ===== */
+var schImp = null;
+function nrm(s) { return String(s == null ? '' : s).replace(/[ً-ْـ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/[ؤ]/g, 'و').replace(/ئ/g, 'ي').replace(/\s+/g, ' ').trim().toLowerCase(); }
+function schDayNum(v) {
+  var x = nrm(v);
+  var m = { 'سبت': 6, 'احد': 0, 'اثنين': 1, 'ثلاثاء': 2, 'اربعاء': 3, 'خميس': 4, 'جمعه': 5 };
+  x = x.replace(/^ال/, '').replace(/^يوم /, '').replace(/^ال/, '');
+  return m.hasOwnProperty(x) ? m[x] : -1;
+}
+function schParseTime(v) {
+  var s = String(v == null ? '' : v).trim().replace(/[٠-٩]/g, function (d) { return d.charCodeAt(0) - 0x0660; });
+  var m = s.match(/^(\d{1,2})[:.](\d{2})(?::\d{2})?\s*([apم صAP]*)/i); if (!m) return '';
+  var h = +m[1], mi = +m[2], ap = (m[3] || '').replace(/\s/g, '').toLowerCase();
+  if (/^(p|م)/.test(ap) && h < 12) h += 12; if (/^(a|ص)/.test(ap) && h === 12) h = 0;
+  if (h > 23 || mi > 59) return '';
+  return (h < 10 ? '0' : '') + h + ':' + (mi < 10 ? '0' : '') + mi;
+}
+var SCH_COLS = { subject: ['المادة', 'مادة', 'اسم المادة'], level: ['الفرقة', 'المستوى', 'الفرقه'], term: ['الفصل', 'الترم', 'الفصل الدراسي'], day: ['اليوم', 'يوم'],
+  start: ['وقت البدء', 'البدء', 'من', 'الوقت', 'بداية'], len: ['المدة', 'مدة المحاضرة', 'المدة (دقيقة)'], hall: ['القاعة', 'المدرج', 'القاعه'] };
+function schParseSheet(rows) {
+  var hi = -1, idx = {};
+  for (var i = 0; i < Math.min(rows.length, 15) && hi < 0; i++) {
+    var cur = {}; rows[i].forEach(function (c, j) { var n = nrm(c); Object.keys(SCH_COLS).forEach(function (k) { if (cur[k] === undefined && SCH_COLS[k].some(function (a) { return nrm(a) === n; })) cur[k] = j; }); });
+    if (cur.subject !== undefined && cur.day !== undefined && cur.start !== undefined) { hi = i; idx = cur; }
+  }
+  if (hi < 0) throw new Error('لم أجد أعمدة المادة واليوم ووقت البدء. استخدم قالب الاستيراد.');
+  var g = function (r, k) { return idx[k] === undefined ? '' : String(r[idx[k]] == null ? '' : r[idx[k]]).trim(); };
+  var out = [];
+  rows.slice(hi + 1).forEach(function (r, n) {
+    if (!r.some(function (c) { return String(c).trim() !== ''; })) return;
+    out.push({ line: hi + n + 2, subject: g(r, 'subject'), level: g(r, 'level'), term: g(r, 'term'), day: g(r, 'day'), start: g(r, 'start'), len: g(r, 'len'), hall: g(r, 'hall') });
+  });
+  return out;
+}
+function schConflictKinds(slot, pool) {
+  var ks = [], s = slot.subjects, h = schHall(slot.hall_id);
+  pool.forEach(function (o) {
+    if (o.id === slot.id || !schOverlap(slot, o)) return;
+    var so = o.subjects;
+    if (slot.hall_id && slot.hall_id === o.hall_id) ks.push('قاعة');
+    if ((s.lecturer_id || s.lecturer_name) && schLectKey(s) === schLectKey(so)) ks.push('محاضر');
+    if (s.department_id && schGroupKey(s) === schGroupKey(so)) ks.push('فرقة');
+  });
+  if (h && h.capacity && schCount(s) > h.capacity) ks.push('سعة');
+  return ks.filter(function (v, i) { return ks.indexOf(v) === i; });
+}
+function schBuildImport(items) {
+  var used = {}, pool = schSlots.slice(), out = [];
+  items.forEach(function (it) {
+    var r = { it: it, err: '', warn: [], slot: null, op: 'insert', existId: '' };
+    var cands = subjects.filter(function (s) { return !s.archived && nrm(s.name) === nrm(it.subject); });
+    if (it.level) cands = cands.filter(function (s) { return nrm(s.level).indexOf(nrm(it.level)) > -1; });
+    if (it.term) cands = cands.filter(function (s) { return nrm(s.term) === nrm(it.term) || nrm(s.term).indexOf(nrm(it.term)) > -1; });
+    var wd = schDayNum(it.day), st = schParseTime(it.start), ln = it.len ? parseInt(it.len, 10) : 90, hall = null;
+    if (!it.subject) r.err = 'المادة فارغة';
+    else if (!cands.length) r.err = 'مادة غير موجودة في النظام';
+    else if (cands.length > 1) r.err = 'أكثر من مادة بنفس الاسم — اكتب الفرقة والفصل';
+    else if (wd < 0) r.err = 'يوم غير مفهوم';
+    else if (!st) r.err = 'وقت البدء غير مفهوم';
+    else if (!(ln >= 15 && ln <= 480)) r.err = 'المدة بين 15 و480 دقيقة';
+    else if (it.hall) { hall = halls.filter(function (h) { return nrm(h.name) === nrm(it.hall); })[0]; if (!hall) r.err = 'قاعة غير موجودة'; }
+    if (!r.err) {
+      var s = cands[0], ex = schSlots.filter(function (t) { return t.subject_id === s.id && !used[t.id]; })[0];
+      if (ex) { used[ex.id] = 1; r.op = 'update'; r.existId = ex.id; pool = pool.filter(function (t) { return t.id !== ex.id; }); }
+      r.slot = { id: ex ? ex.id : 'new' + out.length, subject_id: s.id, weekday: wd, start_time: st, lecture_minutes: ln, hall_id: hall ? hall.id : null, subjects: s };
+      r.warn = schConflictKinds(r.slot, pool);
+      pool.push(r.slot);
+    }
+    out.push(r);
+  });
+  return out;
+}
+function renderSchImport() {
+  var box = $('sx-prev'), tb = $('sx-rows'); tb.innerHTML = '';
+  box.hidden = !schImp;
+  if (!schImp) return;
+  var ok = 0, cf = 0, bad = 0;
+  schImp.forEach(function (r) {
+    var tr = el('tr'), s = r.slot;
+    [String(r.it.line), r.it.subject, r.it.day, r.it.start, r.it.hall || '—'].forEach(function (v) { tr.appendChild(el('td', '', v)); });
+    var st = r.err ? r.err : (r.op === 'update' ? 'تحديث موعد قائم' : 'موعد جديد') + (r.warn.length ? ' — تعارض: ' + r.warn.join('، ') : '');
+    var td = el('td', '', st); if (r.err) { td.style.color = '#b91c1c'; bad++; } else if (r.warn.length) { td.style.color = '#b45309'; cf++; ok++; } else ok++;
+    tr.appendChild(td); tb.appendChild(tr);
+  });
+  $('sx-sum').textContent = 'جاهز للاستيراد: ' + ok + ' (منها بتعارض: ' + cf + ') — مرفوض: ' + bad;
+}
+$('sx-file').onchange = function () {
+  var f = this.files && this.files[0]; schImp = null; renderSchImport(); msg('sx-msg', '');
+  if (!f) return;
+  var isCsv = /\.csv$/i.test(f.name), rd = new FileReader();
+  rd.onerror = function () { msg('sx-msg', 'تعذّرت قراءة الملف.', 'bad'); };
+  rd.onload = function () {
+    try {
+      if (typeof XLSX === 'undefined') throw new Error('تعذّر تحميل مكتبة قراءة Excel.');
+      var wb = XLSX.read(rd.result, { type: isCsv ? 'string' : 'array' });
+      var rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: false, defval: '' });
+      var items = schParseSheet(rows);
+      if (!items.length) throw new Error('الملف لا يحتوي صفوفًا.');
+      schImp = schBuildImport(items); renderSchImport();
+    } catch (e) { schImp = null; renderSchImport(); msg('sx-msg', errText(e), 'bad'); }
+  };
+  if (isCsv) rd.readAsText(f, 'UTF-8'); else rd.readAsArrayBuffer(f);
+};
+$('sx-tpl').onclick = function () {
+  downloadXlsx([['المادة', 'الفرقة', 'الفصل', 'اليوم', 'وقت البدء', 'المدة (دقيقة)', 'القاعة'],
+    ['التربية المقارنة', 'الفرقة الرابعة', 'الأول', 'الأحد', '09:00', 90, 'مدرج 202']], 'الجدول', 'قالب استيراد الجدول');
+};
+$('sx-go').onclick = async function () {
+  if (!schImp) return;
+  var withConf = $('sx-conf').checked;
+  var list = schImp.filter(function (r) { return !r.err && (withConf || !r.warn.length); });
+  if (!list.length) { msg('sx-msg', 'لا توجد صفوف صالحة للاستيراد.', 'bad'); return; }
+  $('sx-go').disabled = true;
+  try {
+    var errs = 0, ins = [];
+    for (var i = 0; i < list.length; i++) {
+      var r = list[i], row = { subject_id: r.slot.subject_id, weekday: r.slot.weekday, start_time: r.slot.start_time, lecture_minutes: r.slot.lecture_minutes, hall_id: r.slot.hall_id };
+      if (r.op === 'update') { var u = await sb.from('timetable').update(row).eq('id', r.existId); if (u.error) { errs++; if (/lecture_minutes/.test(u.error.message || '')) { msg('sx-msg', 'شغّل ملف schedule.sql في Supabase أولًا.', 'bad'); return; } } }
+      else ins.push(row);
+    }
+    if (ins.length) { var x = await sb.from('timetable').insert(ins); if (x.error) { msg('sx-msg', /lecture_minutes/.test(x.error.message || '') ? 'شغّل ملف schedule.sql في Supabase أولًا.' : errText(x.error), 'bad'); return; } }
+    msg('sx-msg', 'تم استيراد ' + (list.length - errs) + ' موعد' + (errs ? ' (فشل ' + errs + ')' : '') + '.', errs ? 'bad' : 'ok');
+    schImp = null; $('sx-file').value = ''; renderSchImport(); await loadSchedule(true);
+  } finally { $('sx-go').disabled = false; }
+};
+
+/* ===== نشر الجدول للطلاب برابط ===== */
+var schShares = [];
+function shareUrl(t) { return new URL('schedule.html?t=' + t, location.href).href; }
+async function loadShares(keep) {
+  var r = await sb.from('schedule_shares').select('id,token,title,active,created_at').order('created_at', { ascending: false });
+  if (r.error) { schShares = []; msg('sp-msg', /schedule_shares/.test(r.error.message || '') ? 'لتفعيل النشر شغّل ملف schedule_publish.sql في Supabase.' : errText(r.error), 'bad'); }
+  else { schShares = r.data || []; if (!keep) msg('sp-msg', ''); }
+  var ul = $('sp-list'); ul.innerHTML = '';
+  schShares.forEach(function (x) {
+    var li = el('li'); li.appendChild(el('b', '', x.title)); li.appendChild(el('span', '', x.active ? ' — منشور' : ' — موقوف'));
+    li.appendChild(el('br'));
+    var a = el('input'); a.readOnly = true; a.value = shareUrl(x.token); a.dir = 'ltr'; a.style.cssText = 'width:100%;margin:6px 0'; a.onfocus = function () { a.select(); }; li.appendChild(a);
+    var cp = el('button', '', 'نسخ الرابط'); cp.type = 'button'; cp.style.padding = '3px 10px';
+    cp.onclick = async function () { try { await navigator.clipboard.writeText(a.value); msg('sp-msg', 'تم نسخ الرابط.', 'ok'); } catch (e) { a.select(); msg('sp-msg', 'حدّد الرابط وانسخه يدويًا.', 'ok'); } };
+    var tg = el('button', '', x.active ? 'إيقاف' : 'تفعيل'); tg.type = 'button'; tg.style.cssText = 'padding:3px 10px;margin-inline-start:6px';
+    tg.onclick = async function () { var u = await sb.from('schedule_shares').update({ active: !x.active }).eq('id', x.id); if (u.error) msg('sp-msg', errText(u.error), 'bad'); else loadShares(); };
+    li.appendChild(cp); li.appendChild(tg);
+    if (me && me.role === 'admin') {
+      var d = el('button', 'danger', 'حذف'), armed = false; d.type = 'button'; d.style.cssText = 'padding:3px 10px;margin-inline-start:6px';
+      d.onclick = async function () { if (!armed) { armed = true; d.textContent = 'اضغط للتأكيد'; setTimeout(function () { armed = false; d.textContent = 'حذف'; }, 5000); return; }
+        var u = await sb.from('schedule_shares').delete().eq('id', x.id); if (u.error) msg('sp-msg', errText(u.error), 'bad'); else loadShares(); };
+      li.appendChild(d);
+    }
+    ul.appendChild(li);
+  });
+}
+$('sp-pub').onclick = async function () {
+  if ($('sc-mode').value !== 'group') { msg('sp-msg', 'اختر «الفرقة والقسم» في «عرض حسب» ثم اختر الفرقة المراد نشرها.', 'bad'); return; }
+  var key = $('sc-target').value, t = schSlots.filter(function (x) { return schSlotKey(x, 'group') === key; })[0];
+  if (!t) { msg('sp-msg', 'لا توجد مواعيد لهذه الفرقة.', 'bad'); return; }
+  var s = schSub(t);
+  if (!s.department_id) { msg('sp-msg', 'مواد هذه الفرقة غير مربوطة بقسم، اربطها أولًا من «ربط القسم والفرقة والمادة».', 'bad'); return; }
+  var row = { department_id: s.department_id, level_id: s.level_id || null, term: s.term || null, title: 'جدول ' + schGroupLabel(s) };
+  var r = await sb.from('schedule_shares').insert(row);
+  if (r.error) { msg('sp-msg', /schedule_shares/.test(r.error.message || '') ? 'شغّل ملف schedule_publish.sql في Supabase أولًا.' : errText(r.error), 'bad'); return; }
+  msg('sp-msg', 'تم النشر. انسخ الرابط من القائمة وأرسله للطلاب.', 'ok'); loadShares(true);
 };
 
 /* ============ القاعات وأجهزة البصمة ============ */
