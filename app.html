@@ -648,6 +648,9 @@ catch(e){document.documentElement.dataset.theme='azhar';}
         <div><label for="sc-time">وقت البدء</label><input id="sc-time" type="time" value="09:00"></div>
         <div><label for="sc-len">المدة (دقيقة)</label><input id="sc-len" type="number" min="15" max="480" value="90" inputmode="numeric"></div>
       </div>
+      <div><label for="sc-with">محاضرة مشتركة مع مواد أخرى (اختياري)</label>
+        <select id="sc-with" multiple size="5"></select>
+        <p class="hint" style="margin:4px 0 0">لو نفس المحاضرة بتتعقد لأكثر من قسم أو فرقة في نفس القاعة والتوقيت، اختر المواد الأخرى هنا (Ctrl للاختيار المتعدد). تُحفظ لكل مادة موعدها بدون اعتبارها تعارضًا، وتُحسب سعة القاعة على مجموع طلابها.</p></div>
       <ul class="plain" id="sc-warn"></ul>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button id="sc-save" type="button" class="primary" data-ic="check" style="flex:1 1 180px">حفظ الموعد</button><button id="sc-cancel" type="button" data-ic="x" hidden style="flex:0 0 auto">إلغاء التعديل</button></div>
     </div>
@@ -667,13 +670,13 @@ catch(e){document.documentElement.dataset.theme='azhar';}
     </div>
     <div class="card" id="sc-p-imp" hidden>
       <h2 data-ic="upload">استيراد جدول من Excel</h2>
-      <p class="hint" style="margin-top:0">أعمدة الملف: المادة، الفرقة، الفصل، اليوم، وقت البدء، المدة (دقيقة)، القاعة. الفرقة والفصل والمدة والقاعة اختيارية، لكن اكتب الفرقة والفصل لو في أكثر من مادة بنفس الاسم. لو المادة لها موعد قائم يُحدَّث بدل ما يتكرر.</p>
+      <p class="hint" style="margin-top:0">أعمدة الملف: القسم، التخصص، الفرقة، الفصل الدراسي، المادة، اليوم، الموعد (مثل 8 : 10 يعني من 8 إلى 10)، والقاعة اختيارية. القسم أو التخصص أو الفرقة أو المادة الناقصة تُنشأ عند الاستيراد (للمدير فقط). لو المادة لها موعد قائم يُحدَّث بدل ما يتكرر. الخلية الفارغة في القسم أو الفرقة أو الفصل ترث ما فوقها.</p>
       <div id="sx-msg" class="msg" hidden></div>
       <p><button id="sx-tpl" type="button" data-ic="download">تحميل القالب</button></p>
       <input id="sx-file" type="file" accept=".xlsx,.xls,.csv">
       <div id="sx-prev" hidden>
         <p class="hint" id="sx-sum"></p>
-        <div class="scroll"><table><thead><tr><th>السطر</th><th>المادة</th><th>اليوم</th><th>البدء</th><th>القاعة</th><th>النتيجة</th></tr></thead><tbody id="sx-rows"></tbody></table></div>
+        <div class="scroll"><table><thead><tr><th>السطر</th><th>المادة</th><th>القسم / التخصص</th><th>الفرقة والفصل</th><th>اليوم</th><th>الموعد</th><th>القاعة</th><th>النتيجة</th></tr></thead><tbody id="sx-rows"></tbody></table></div>
         <label class="opt" style="flex-direction:row;justify-content:flex-start;gap:10px;min-height:0;padding:8px 12px;text-align:start"><input id="sx-conf" type="checkbox"> <span>استورد المواعيد المتعارضة أيضًا</span></label>
         <p><button id="sx-go" type="button" class="primary" data-ic="check">اعتماد الاستيراد</button></p>
       </div>
@@ -2390,8 +2393,8 @@ function schCount(s) { return (s.subject_students && s.subject_students[0] && s.
 function schOverlap(a, b) { return a.weekday === b.weekday && ttMin(a.start_time) < schEnd(b) && ttMin(b.start_time) < schEnd(a); }
 
 // فحص موعد قبل حفظه (من الخادم لأن المحاضر لا يرى مواعيد غيره). يُرجع {lines:[نصوص]}
-async function schedCheck(sid, wd, tm, len, hallId, excludeId) {
-  var r = await sb.rpc('schedule_conflicts', { p_subject: sid, p_weekday: wd, p_start: tm, p_len: len, p_hall: hallId || null, p_exclude: excludeId || null });
+async function schedCheck(sid, wd, tm, len, hallId, excludeId, withIds) {
+  var r = await sb.rpc('schedule_conflicts', { p_subject: sid, p_weekday: wd, p_start: tm, p_len: len, p_hall: hallId || null, p_exclude: excludeId || null, p_with: withIds || [] });
   if (r.error || !r.data) return { lines: [], missing: !!r.error };
   var d = r.data, lines = [];
   var f = function (x) { return '«' + x.subject + '»' + (x.level ? ' (' + x.level + ')' : '') + ' ' + ttFmt(x.start) + ' → ' + ttFmtMin(ttMin(x.start) + x.minutes) + (x.lecturer ? ' — ' + x.lecturer : ''); };
@@ -2402,15 +2405,19 @@ async function schedCheck(sid, wd, tm, len, hallId, excludeId) {
   return { lines: lines };
 }
 
+function schShareMembers(t) { return t.shared_group ? schSlots.filter(function (x) { return x.shared_group === t.shared_group; }) : [t]; }
+function schShareStudents(t) { return schShareMembers(t).reduce(function (n, x) { return n + schCount(schSub(x)); }, 0); }
 function schFindConflicts() {
-  var out = [], bad = {};
+  var out = [], bad = {}, capDone = {};
   var push = function (kind, a, b, detail) { out.push({ kind: kind, a: a, b: b, detail: detail }); bad[a.id] = 1; if (b) bad[b.id] = 1; };
   for (var i = 0; i < schSlots.length; i++) {
     var a = schSlots[i], sa = schSub(a), h = schHall(a.hall_id);
-    if (h && h.capacity && schCount(sa) > h.capacity) push('cap', a, null, schCount(sa) + ' طالب في قاعة سعتها ' + h.capacity);
+    var tot = schShareStudents(a), gk = a.shared_group || a.id;
+    if (h && h.capacity && tot > h.capacity && !capDone[gk]) { capDone[gk] = 1; push('cap', a, null, tot + ' طالب' + (a.shared_group ? ' (محاضرة مشتركة)' : '') + ' في قاعة سعتها ' + h.capacity); }
     for (var j = i + 1; j < schSlots.length; j++) {
       var b = schSlots[j], sb2 = schSub(b);
       if (!schOverlap(a, b)) continue;
+      if (a.shared_group && a.shared_group === b.shared_group) continue;   // محاضرة مشتركة: ليست تعارضًا
       if (a.hall_id && a.hall_id === b.hall_id) push('hall', a, b, 'القاعة: ' + (h ? h.name : ''));
       if ((sa.lecturer_id || sa.lecturer_name) && schLectKey(sa) === schLectKey(sb2)) push('lect', a, b, 'المحاضر: ' + (sa.lecturer_name || ''));
       if (sa.department_id && schGroupKey(sa) === schGroupKey(sb2)) push('grp', a, b, schGroupLabel(sa));
@@ -2430,6 +2437,10 @@ async function loadSchedule(keepMsg) {
     var o = el('option', '', s.name + ' — ' + s.level + (s.term ? ' — ' + s.term : '') + (s.lecturer_name ? ' (' + s.lecturer_name + ')' : '')); o.value = s.id; ss.appendChild(o);
   });
   if (cur) ss.value = cur;
+  var sw = $('sc-with'), wsel = [].map.call(sw.selectedOptions, function (o) { return o.value; }); sw.innerHTML = '';
+  subjects.filter(function (x) { return !x.archived; }).forEach(function (x) {
+    var o = el('option', '', x.name + ' — ' + [deptPath(x.department_id).split(' / ').pop(), x.level, x.term].filter(Boolean).join(' — ')); o.value = x.id; o.selected = wsel.indexOf(x.id) > -1; sw.appendChild(o);
+  });
   var sh = $('sc-hall'), hc = sh.value; sh.innerHTML = '';
   var o0 = el('option', '', '— بدون قاعة —'); o0.value = ''; sh.appendChild(o0);
   halls.forEach(function (h) { var o = el('option', '', hallLabel(h)); o.value = h.id; sh.appendChild(o); });
@@ -2453,23 +2464,25 @@ function renderSchConf() {
 
 // حقول النموذج: فحص فوري
 var schPrevTimer = null;
+function schWith(sid) { return [].map.call($('sc-with').selectedOptions, function (o) { return o.value; }).filter(function (v) { return v !== sid; }); }
 function schPreview() {
   clearTimeout(schPrevTimer);
   schPrevTimer = setTimeout(async function () {
     var ul = $('sc-warn'); ul.innerHTML = '';
     var sid = $('sc-subject').value, tm = $('sc-time').value, len = parseInt($('sc-len').value, 10) || 0;
     if (!sid || !tm || len < 15) return;
-    var c = await schedCheck(sid, parseInt($('sc-day').value, 10), tm, len, $('sc-hall').value || null, schEditId || null);
+    var c = await schedCheck(sid, parseInt($('sc-day').value, 10), tm, len, $('sc-hall').value || null, schEditId || null, schWith(sid));
     if (c.missing) { var m = el('li', '', 'لم يتم تفعيل كشف التعارضات بعد: شغّل ملف schedule.sql في Supabase.'); ul.appendChild(m); return; }
     if (!c.lines.length) { var ok = el('li', '', 'لا يوجد تعارض في هذا الموعد.'); ok.style.color = 'var(--ok, #047857)'; ul.appendChild(ok); return; }
     c.lines.forEach(function (x) { var li = el('li', '', x); li.style.color = 'var(--bad, #b91c1c)'; ul.appendChild(li); });
   }, 250);
 }
-['sc-subject', 'sc-hall', 'sc-day', 'sc-time', 'sc-len'].forEach(function (id) { $(id).addEventListener('change', schPreview); });
+['sc-subject', 'sc-hall', 'sc-day', 'sc-time', 'sc-len', 'sc-with'].forEach(function (id) { $(id).addEventListener('change', schPreview); });
 $('sc-len').addEventListener('input', schPreview);
 
 function schReset() {
   schEditId = ''; $('sc-save').textContent = 'حفظ الموعد'; $('sc-cancel').hidden = true; $('sc-warn').innerHTML = '';
+  [].forEach.call($('sc-with').options, function (o) { o.selected = false; });
 }
 $('sc-cancel').onclick = function () { schReset(); msg('sc-msg', ''); };
 $('sc-save').onclick = async function () {
@@ -2477,14 +2490,31 @@ $('sc-save').onclick = async function () {
   if (!sid) { msg('sc-msg', 'اختر المادة.', 'bad'); return; }
   if (!tm) { msg('sc-msg', 'اكتب وقت البدء.', 'bad'); return; }
   if (!(len >= 15 && len <= 480)) { msg('sc-msg', 'مدة المحاضرة بين 15 و480 دقيقة.', 'bad'); return; }
+  var withIds = schWith(sid);
   $('sc-save').disabled = true;
   try {
-    var c = await schedCheck(sid, wd, tm, len, hall, schEditId || null);
+    var c = await schedCheck(sid, wd, tm, len, hall, schEditId || null, withIds);
     if (c.lines.length && !window.confirm('تنبيه تعارض:\n- ' + c.lines.join('\n- ') + '\n\nهل تحفظ الموعد رغم ذلك؟')) return;
-    var row = { subject_id: sid, weekday: wd, start_time: tm, lecture_minutes: len, hall_id: hall };
-    var r = schEditId ? await sb.from('timetable').update(row).eq('id', schEditId) : await sb.from('timetable').insert(row);
-    if (r.error) { msg('sc-msg', /lecture_minutes/.test(r.error.message || '') ? 'شغّل ملف schedule.sql في Supabase أولًا.' : errText(r.error), 'bad'); return; }
-    msg('sc-msg', schEditId ? 'تم حفظ التعديل.' : 'تم تسكين الموعد.', 'ok');
+    var cur = schEditId ? schSlots.filter(function (t) { return t.id === schEditId; })[0] : null;
+    var gid = withIds.length ? ((cur && cur.shared_group) || (window.crypto && crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (ch) { var r = Math.random() * 16 | 0; return (ch === 'x' ? r : (r & 3 | 8)).toString(16); }))) : null;
+    var base = { weekday: wd, start_time: tm, lecture_minutes: len, hall_id: hall }, err = null;
+    var note = function (r) { if (r && r.error && !err) err = r.error; };
+    var mainRow = Object.assign({ subject_id: sid, shared_group: gid }, base);
+    note(cur ? await sb.from('timetable').update(mainRow).eq('id', cur.id) : await sb.from('timetable').insert(mainRow));
+    var others = cur && cur.shared_group ? schSlots.filter(function (t) { return t.shared_group === cur.shared_group && t.id !== cur.id; }) : [];
+    for (var i = 0; i < others.length; i++) {
+      var o = others[i], keep = withIds.indexOf(o.subject_id) > -1;
+      note(await sb.from('timetable').update(keep ? Object.assign({ shared_group: gid }, base) : { shared_group: null }).eq('id', o.id));
+    }
+    var have = others.map(function (o) { return o.subject_id; });
+    for (var k = 0; k < withIds.length; k++) {
+      var w = withIds[k]; if (have.indexOf(w) > -1) continue;
+      var ex = schSlots.filter(function (t) { return t.subject_id === w && (!cur || t.id !== cur.id); })[0];
+      var prow = Object.assign({ shared_group: gid }, base);
+      note(ex ? await sb.from('timetable').update(prow).eq('id', ex.id) : await sb.from('timetable').insert(Object.assign({ subject_id: w }, prow)));
+    }
+    if (err) { msg('sc-msg', /lecture_minutes|shared_group/.test(err.message || '') ? 'شغّل ملف schedule.sql في Supabase أولًا.' : errText(err), 'bad'); await loadSchedule(true); return; }
+    msg('sc-msg', (schEditId ? 'تم حفظ التعديل.' : 'تم تسكين الموعد.') + (withIds.length ? ' (محاضرة مشتركة بين ' + (withIds.length + 1) + ' مواد)' : ''), 'ok');
     schReset(); await loadSchedule(true);
   } finally { $('sc-save').disabled = false; }
 };
@@ -2517,11 +2547,21 @@ $('sc-target').onchange = function () { renderSchGrid(); };
 // أسطر الخلية حسب نوع العرض
 function schCellLines(t, mode) {
   var s = schSub(t), h = schHall(t.hall_id), L = [s.name || 'مادة'];
+  var mem = t.shared_group ? schShareMembers(t) : [];
   if (mode === 'group') { if (s.lecturer_name) L.push(s.lecturer_name); if (h) L.push('قاعة: ' + h.name); }
   else if (mode === 'hall') { L.push([s.level, s.term].filter(Boolean).join(' — ')); if (s.lecturer_name) L.push(s.lecturer_name); }
   else { L.push([s.level, s.term].filter(Boolean).join(' — ')); if (h) L.push('قاعة: ' + h.name); }
+  if (mem.length > 1) {
+    if (mode === 'group') L.push('مشتركة مع: ' + mem.filter(function (x) { return x.id !== t.id; }).map(function (x) { return schGroupLabel(schSub(x)).split(' — ').slice(0, 1).join(''); }).filter(function (v, i, a) { return a.indexOf(v) === i; }).join('، '));
+    else L.push('محاضرة مشتركة: ' + mem.map(function (x) { return schGroupLabel(schSub(x)); }).filter(function (v, i, a) { return a.indexOf(v) === i; }).join(' | '));
+  }
   L.push(schRange(t));
   return L.filter(Boolean);
+}
+// خلية واحدة: المحاضرة المشتركة تظهر مرة واحدة في عرض القاعة/المحاضر
+function schCellSlots(list, mode) {
+  if (mode === 'group') return list;
+  var seen = {}; return list.filter(function (t) { if (!t.shared_group) return true; if (seen[t.shared_group]) return false; seen[t.shared_group] = 1; return true; });
 }
 function schGridData(key, mode) {
   var sl = schSlots.filter(function (t) { return schSlotKey(t, mode) === key; });
@@ -2543,7 +2583,7 @@ function renderSchGrid() {
     var tr = el('tr'); var th = el('th', '', ttFmt(tm)); tr.appendChild(th);
     g.days.forEach(function (d) {
       var td = el('td'); td.style.textAlign = 'center'; td.style.fontSize = '13px';
-      g.cell(d, tm).forEach(function (t, i) {
+      schCellSlots(g.cell(d, tm), mode).forEach(function (t, i) {
         var box = el('div'); if (i) box.style.cssText = 'border-top:1px dashed var(--line);margin-top:6px;padding-top:6px';
         schCellLines(t, mode).forEach(function (ln, k) { var dv = el('div', '', ln); if (k === 0) dv.style.fontWeight = '700'; box.appendChild(dv); });
         if (schBad[t.id]) { box.style.background = '#fee2e2'; box.style.borderRadius = '6px'; box.title = 'يوجد تعارض في هذا الموعد'; }
@@ -2568,8 +2608,8 @@ function renderSchRows() {
   list.forEach(function (t) {
     var s = schSub(t), h = schHall(t.hall_id), tr = el('tr');
     if (schBad[t.id]) tr.style.background = '#fee2e2';
-    var cnt = schCount(s), over = h && h.capacity && cnt > h.capacity;
-    [TT_DAYS[t.weekday], schRange(t), s.name || '', schGroupLabel(s), s.lecturer_name || '—', h ? h.name : '—', cnt + (h && h.capacity ? ' / ' + h.capacity : '')].forEach(function (v, i) {
+    var cnt = schCount(s), over = h && h.capacity && (t.shared_group ? schShareStudents(t) : cnt) > h.capacity;
+    [TT_DAYS[t.weekday], schRange(t), (s.name || '') + (t.shared_group && schShareMembers(t).length > 1 ? ' (مشتركة)' : ''), schGroupLabel(s), s.lecturer_name || '—', h ? h.name : '—', (t.shared_group ? schShareStudents(t) : cnt) + (h && h.capacity ? ' / ' + h.capacity : '')].forEach(function (v, i) {
       var td = el('td', '', v); if (i === 6 && over) td.style.color = '#b91c1c'; tr.appendChild(td);
     });
     var td = el('td');
@@ -2578,6 +2618,8 @@ function renderSchRows() {
       schEditId = t.id;
       $('sc-subject').value = t.subject_id; $('sc-hall').value = t.hall_id || ''; $('sc-day').value = String(t.weekday);
       $('sc-time').value = String(t.start_time).slice(0, 5); $('sc-len').value = t.lecture_minutes || 90;
+      var mem = t.shared_group ? schShareMembers(t).map(function (x) { return x.subject_id; }) : [];
+      [].forEach.call($('sc-with').options, function (o) { o.selected = o.value !== t.subject_id && mem.indexOf(o.value) > -1; });
       $('sc-save').textContent = 'حفظ التعديل'; $('sc-cancel').hidden = false;
       showSchPane('sc-p-add'); window.scrollTo(0, 0); schPreview();
     };
@@ -2602,7 +2644,7 @@ function schSheetOpts(key, label, mode) {
   var g = schGridData(key, mode);
   var head = ['الفترة'].concat(g.days.map(function (d) { return TT_DAYS[d]; }));
   var rows = g.times.map(function (tm) {
-    return [ttFmt(tm)].concat(g.days.map(function (d) { return g.cell(d, tm).map(function (t) { return schCellLines(t, mode).join('\n'); }).join('\n――――\n'); }));
+    return [ttFmt(tm)].concat(g.days.map(function (d) { return schCellSlots(g.cell(d, tm), mode).map(function (t) { return schCellLines(t, mode).join('\n'); }).join('\n――――\n'); }));
   });
   return { sheetName: label, title: 'جدول ' + SCH_MODE_LBL[mode] + ': ' + label, fileName: 'جدول - ' + label, head: head, rows: rows,
     widths: [13].concat(g.days.map(function () { return 28; })), headH: 30, wrap: true, msgId: 'sc-msg' };
@@ -2625,48 +2667,71 @@ $('sc-xl-all').onclick = function () {
   exportStyled(first);
 };
 $('sc-xl-list').onclick = function () {
-  var head = ['اليوم', 'من', 'إلى', 'المادة', 'القسم', 'الفرقة', 'الفصل', 'المحاضر', 'القاعة', 'عدد الطلاب', 'سعة القاعة', 'تعارض'];
+  var head = ['اليوم', 'من', 'إلى', 'المادة', 'القسم', 'الفرقة', 'الفصل', 'المحاضر', 'القاعة', 'عدد الطلاب', 'سعة القاعة', 'مشتركة', 'تعارض'];
   var rows = schSlots.map(function (t) {
     var s = schSub(t), h = schHall(t.hall_id), kinds = schConfl.filter(function (c) { return c.a.id === t.id || (c.b && c.b.id === t.id); }).map(function (c) { return SCH_KIND[c.kind]; });
-    return [TT_DAYS[t.weekday], ttFmt(t.start_time), ttFmtMin(schEnd(t)), s.name || '', deptPath(s.department_id), s.level || '', s.term || '', s.lecturer_name || '', h ? h.name : '', schCount(s), h && h.capacity ? h.capacity : '',
+    return [TT_DAYS[t.weekday], ttFmt(t.start_time), ttFmtMin(schEnd(t)), s.name || '', deptPath(s.department_id), s.level || '', s.term || '', s.lecturer_name || '', h ? h.name : '', schCount(s), h && h.capacity ? h.capacity : '', t.shared_group && schShareMembers(t).length > 1 ? 'نعم' : '',
       kinds.filter(function (v, i) { return kinds.indexOf(v) === i; }).join('، ')];
   });
   exportStyled({ sheetName: 'المواعيد', title: 'جدول المواعيد العام   (عدد المواعيد: ' + rows.length + ')', fileName: 'جدول المواعيد العام', head: head, rows: rows,
-    widths: [11, 11, 11, 30, 26, 16, 14, 24, 16, 12, 12, 22], left: [3, 4, 7], headH: 32, msgId: 'sc-msg' });
+    widths: [11, 11, 11, 30, 26, 16, 14, 24, 16, 12, 12, 10, 22], left: [3, 4, 7], headH: 32, msgId: 'sc-msg' });
 };
 
 
-/* ===== استيراد الجدول من Excel ===== */
-var schImp = null;
-function nrm(s) { return String(s == null ? '' : s).replace(/[ً-ْـ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/[ؤ]/g, 'و').replace(/ئ/g, 'ي').replace(/\s+/g, ' ').trim().toLowerCase(); }
+/* ===== استيراد الجدول من Excel (قسم / تخصص / فرقة / فصل / مادة / يوم / موعد) ===== */
+var schImp = null, schPlan = null;
+function nrm(s) { return String(s == null ? '' : s).replace(/[ً-ْـ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/ؤ/g, 'و').replace(/ئ/g, 'ي').replace(/\s+/g, ' ').trim().toLowerCase(); }
 function schDayNum(v) {
-  var x = nrm(v);
+  var x = nrm(v).replace(/^يوم /, '').replace(/^ال/, '');
   var m = { 'سبت': 6, 'احد': 0, 'اثنين': 1, 'ثلاثاء': 2, 'اربعاء': 3, 'خميس': 4, 'جمعه': 5 };
-  x = x.replace(/^ال/, '').replace(/^يوم /, '').replace(/^ال/, '');
   return m.hasOwnProperty(x) ? m[x] : -1;
 }
+function schDigits(s) { return String(s == null ? '' : s).replace(/[٠-٩]/g, function (d) { return d.charCodeAt(0) - 0x0660; }).replace(/[۰-۹]/g, function (d) { return d.charCodeAt(0) - 0x06F0; }); }
 function schParseTime(v) {
-  var s = String(v == null ? '' : v).trim().replace(/[٠-٩]/g, function (d) { return d.charCodeAt(0) - 0x0660; });
+  var s = schDigits(v).trim();
   var m = s.match(/^(\d{1,2})[:.](\d{2})(?::\d{2})?\s*([apم صAP]*)/i); if (!m) return '';
   var h = +m[1], mi = +m[2], ap = (m[3] || '').replace(/\s/g, '').toLowerCase();
   if (/^(p|م)/.test(ap) && h < 12) h += 12; if (/^(a|ص)/.test(ap) && h === 12) h = 0;
   if (h > 23 || mi > 59) return '';
   return (h < 10 ? '0' : '') + h + ':' + (mi < 10 ? '0' : '') + mi;
 }
-var SCH_COLS = { subject: ['المادة', 'مادة', 'اسم المادة'], level: ['الفرقة', 'المستوى', 'الفرقه'], term: ['الفصل', 'الترم', 'الفصل الدراسي'], day: ['اليوم', 'يوم'],
-  start: ['وقت البدء', 'البدء', 'من', 'الوقت', 'بداية'], len: ['المدة', 'مدة المحاضرة', 'المدة (دقيقة)'], hall: ['القاعة', 'المدرج', 'القاعه'] };
+// «الموعد»: فترة من–إلى مثل «8 : 10» أو «8-10» أو «08:30 - 10:00»، أو وقت بدء واحد مثل «09:30»
+function schParseSlot(raw) {
+  var s = schDigits(raw).replace(/\s+/g, ' ').trim();
+  var m = s.match(/^(\d{1,2})(?::(\d{2}))?\s*(?:[:\-–—~]|الى|إلى|الي|to)\s*(\d{1,2})(?::(\d{2}))?\s*([apمصAP]?)$/i);
+  if (m) {
+    var sh = +m[1], sm = m[2] ? +m[2] : 0, eh = +m[3], em = m[4] ? +m[4] : 0, hoursOnly = !m[2] && !m[4];
+    if (sh <= 24 && eh <= 24 && sm < 60 && em < 60) {
+      if (sh < 7) sh += 12;                                   // 1 : 3 → ١ ظهرًا إلى ٣ عصرًا
+      if (eh < 7 || eh * 60 + em <= sh * 60 + sm) { if (eh < 12) eh += 12; }
+      var len = (eh * 60 + em) - (sh * 60 + sm);
+      if (len >= 15 && len <= (hoursOnly ? 300 : 480) && sh < 24 && eh <= 24) return { start: (sh < 10 ? '0' : '') + sh + ':' + (sm < 10 ? '0' : '') + sm, len: len, range: true };
+    }
+  }
+  var t = schParseTime(s);
+  return t ? { start: t, len: 0, range: false } : null;
+}
+var SCH_COLS = {
+  dept: ['القسم', 'قسم'], spec: ['التخصص', 'تخصص', 'الشعبة', 'البرنامج'],
+  level: ['الفرقة', 'الفرقه', 'المستوى', 'الفرقة الدراسية'], term: ['الفصل الدراسي', 'الفصل', 'الترم'],
+  subject: ['اسم المادة', 'المادة', 'مادة'], day: ['اليوم', 'يوم'],
+  slot: ['الموعد', 'موعد', 'الفترة', 'الوقت'], start: ['وقت البدء', 'البدء', 'من', 'بداية'],
+  len: ['المدة (دقيقة)', 'المدة', 'مدة المحاضرة'], hall: ['القاعة', 'القاعه', 'المدرج'] };
 function schParseSheet(rows) {
   var hi = -1, idx = {};
   for (var i = 0; i < Math.min(rows.length, 15) && hi < 0; i++) {
     var cur = {}; rows[i].forEach(function (c, j) { var n = nrm(c); Object.keys(SCH_COLS).forEach(function (k) { if (cur[k] === undefined && SCH_COLS[k].some(function (a) { return nrm(a) === n; })) cur[k] = j; }); });
-    if (cur.subject !== undefined && cur.day !== undefined && cur.start !== undefined) { hi = i; idx = cur; }
+    if (cur.subject !== undefined && cur.day !== undefined && (cur.slot !== undefined || cur.start !== undefined)) { hi = i; idx = cur; }
   }
-  if (hi < 0) throw new Error('لم أجد أعمدة المادة واليوم ووقت البدء. استخدم قالب الاستيراد.');
+  if (hi < 0) throw new Error('لم أجد أعمدة المادة واليوم والموعد. استخدم قالب الاستيراد.');
   var g = function (r, k) { return idx[k] === undefined ? '' : String(r[idx[k]] == null ? '' : r[idx[k]]).trim(); };
-  var out = [];
+  var out = [], last = {};
   rows.slice(hi + 1).forEach(function (r, n) {
     if (!r.some(function (c) { return String(c).trim() !== ''; })) return;
-    out.push({ line: hi + n + 2, subject: g(r, 'subject'), level: g(r, 'level'), term: g(r, 'term'), day: g(r, 'day'), start: g(r, 'start'), len: g(r, 'len'), hall: g(r, 'hall') });
+    var it = { line: hi + n + 2, subject: g(r, 'subject'), day: g(r, 'day'), slot: g(r, 'slot'), start: g(r, 'start'), len: g(r, 'len'), hall: g(r, 'hall') };
+    var newDept = !!g(r, 'dept');   // قسم جديد في الصف: لا يرث التخصص من الصف السابق
+    ['dept', 'spec', 'level', 'term'].forEach(function (k) { it[k] = g(r, k); if (!it[k] && idx[k] !== undefined && !(k === 'spec' && newDept)) it[k] = last[k] || ''; last[k] = it[k]; });   // الخلايا المدمجة/الفارغة ترث ما فوقها
+    out.push(it);
   });
   return out;
 }
@@ -2674,38 +2739,85 @@ function schConflictKinds(slot, pool) {
   var ks = [], s = slot.subjects, h = schHall(slot.hall_id);
   pool.forEach(function (o) {
     if (o.id === slot.id || !schOverlap(slot, o)) return;
+    if (slot.shared_group && slot.shared_group === o.shared_group) return;   // محاضرة مشتركة
     var so = o.subjects;
     if (slot.hall_id && slot.hall_id === o.hall_id) ks.push('قاعة');
     if ((s.lecturer_id || s.lecturer_name) && schLectKey(s) === schLectKey(so)) ks.push('محاضر');
     if (s.department_id && schGroupKey(s) === schGroupKey(so)) ks.push('فرقة');
   });
-  if (h && h.capacity && schCount(s) > h.capacity) ks.push('سعة');
+  var tot = schCount(s) + pool.filter(function (o) { return o.id !== slot.id && slot.shared_group && o.shared_group === slot.shared_group; }).reduce(function (n, o) { return n + schCount(o.subjects); }, 0);
+  if (h && h.capacity && tot > h.capacity) ks.push('سعة');
   return ks.filter(function (v, i) { return ks.indexOf(v) === i; });
 }
 function schBuildImport(items) {
-  var used = {}, pool = schSlots.slice(), out = [];
+  var isAdm = !!(me && me.role === 'admin'), vn = 0;
+  var plan = { depts: [], levels: [], subs: [] }, sd = departments.slice(), sl = levels.slice(), ss = subjects.filter(function (s) { return !s.archived; });
+  var roots = departments.filter(function (d) { return !d.parent_id; }), root = roots.length === 1 ? roots[0].id : null;
+  var shareCnt = {}, shareKeyOf = function (it) {
+    var sp0 = it.slot ? schParseSlot(it.slot) : (it.start ? { start: schParseTime(it.start), len: 0 } : null), wd0 = schDayNum(it.day);
+    if (!it.hall || !sp0 || !sp0.start || wd0 < 0 || !it.subject) return '';
+    return [nrm(it.subject), wd0, sp0.start, sp0.len || it.len || '', nrm(it.hall)].join('|');
+  };
+  items.forEach(function (it) { var k = shareKeyOf(it); if (k) shareCnt[k] = (shareCnt[k] || 0) + 1; });
+  var used = {}, pool = schSlots.slice(), out = [], maxSort = levels.reduce(function (m, x) { return Math.max(m, x.sort || 0); }, 0);
+  var under = function (id, anc) { return id === anc || isUnderDept(id, anc); };
   items.forEach(function (it) {
-    var r = { it: it, err: '', warn: [], slot: null, op: 'insert', existId: '' };
-    var cands = subjects.filter(function (s) { return !s.archived && nrm(s.name) === nrm(it.subject); });
-    if (it.level) cands = cands.filter(function (s) { return nrm(s.level).indexOf(nrm(it.level)) > -1; });
-    if (it.term) cands = cands.filter(function (s) { return nrm(s.term) === nrm(it.term) || nrm(s.term).indexOf(nrm(it.term)) > -1; });
-    var wd = schDayNum(it.day), st = schParseTime(it.start), ln = it.len ? parseInt(it.len, 10) : 90, hall = null;
+    var r = { it: it, err: '', news: [], warn: [], slot: null, op: 'insert', existId: '', range: '' };
+    var wd = schDayNum(it.day), st = '', ln = 90, hall = null;
+    var sp = it.slot ? schParseSlot(it.slot) : (it.start ? { start: schParseTime(it.start), len: 0 } : null);
+    if (sp && sp.start) { st = sp.start; ln = sp.len || (it.len ? parseInt(schDigits(it.len), 10) : 90); }
     if (!it.subject) r.err = 'المادة فارغة';
-    else if (!cands.length) r.err = 'مادة غير موجودة في النظام';
-    else if (cands.length > 1) r.err = 'أكثر من مادة بنفس الاسم — اكتب الفرقة والفصل';
     else if (wd < 0) r.err = 'يوم غير مفهوم';
-    else if (!st) r.err = 'وقت البدء غير مفهوم';
+    else if (!st) r.err = 'الموعد غير مفهوم (اكتب مثل 8 : 10)';
     else if (!(ln >= 15 && ln <= 480)) r.err = 'المدة بين 15 و480 دقيقة';
     else if (it.hall) { hall = halls.filter(function (h) { return nrm(h.name) === nrm(it.hall); })[0]; if (!hall) r.err = 'قاعة غير موجودة'; }
+    var mark = [sd.length, sl.length, ss.length, plan.depts.length, plan.levels.length, plan.subs.length], subj = null;
     if (!r.err) {
-      var s = cands[0], ex = schSlots.filter(function (t) { return t.subject_id === s.id && !used[t.id]; })[0];
-      if (ex) { used[ex.id] = 1; r.op = 'update'; r.existId = ex.id; pool = pool.filter(function (t) { return t.id !== ex.id; }); }
-      r.slot = { id: ex ? ex.id : 'new' + out.length, subject_id: s.id, weekday: wd, start_time: st, lecture_minutes: ln, hall_id: hall ? hall.id : null, subjects: s };
-      r.warn = schConflictKinds(r.slot, pool);
-      pool.push(r.slot);
+      var need = function (what) { if (!isAdm) { r.err = what + ' غير موجود (إنشاؤه للمدير فقط)'; return false; } return true; };
+      var tdept = null;
+      if (it.dept) {
+        var n1 = nrm(it.dept), hits = sd.filter(function (d) { var n = nrm(d.name); return n === n1 || n === nrm('قسم ' + it.dept) || n.replace(/^قسم /, '') === n1; });
+        var dd = hits[0];
+        if (hits.length > 1) { var tops = hits.filter(function (d) { return !d.parent_id || d.parent_id === root; }); if (tops.length === 1) dd = tops[0]; else r.err = 'اسم القسم يتكرر في أكثر من مكان'; }
+        if (!r.err && !dd && need('القسم')) { dd = { id: 'v' + (++vn), name: it.dept, parent_id: root, virtual: true }; sd.push(dd); plan.depts.push(dd); r.news.push('قسم'); }
+        if (!r.err && it.spec) {
+          var n2 = nrm(it.spec), sp2 = sd.filter(function (d) { return d.parent_id === dd.id && nrm(d.name) === n2; })[0];
+          if (!sp2 && need('التخصص')) { sp2 = { id: 'v' + (++vn), name: it.spec, parent_id: dd.id, virtual: true }; sd.push(sp2); plan.depts.push(sp2); r.news.push('تخصص'); }
+          dd = sp2;
+        }
+        tdept = dd && dd.id;
+      }
+      var lv = null;
+      if (!r.err && it.level) {
+        var nl = nrm(it.level);
+        lv = sl.filter(function (l) { return nrm(l.name) === nl; })[0] || sl.filter(function (l) { return nrm(l.name).indexOf(nl) > -1 || nl.indexOf(nrm(l.name)) > -1; })[0];
+        if (!lv && need('الفرقة')) { lv = { id: 'v' + (++vn), name: /فرق/.test(it.level) ? it.level : 'الفرقة ' + it.level, sort: ++maxSort, virtual: true }; sl.push(lv); plan.levels.push(lv); r.news.push('فرقة'); }
+      }
+      if (!r.err) {
+        var nt = nrm(it.term);
+        var cands = ss.filter(function (s) {
+          return nrm(s.name) === nrm(it.subject) && (!tdept || under(s.department_id, tdept) || under(tdept, s.department_id)) && (!lv || s.level_id === lv.id)
+            && (!nt || nrm(s.term).indexOf(nt) > -1);
+        });
+        if (cands.length > 1) r.err = 'أكثر من مادة بنفس الاسم — اكتب القسم والفرقة والفصل';
+        else if (cands.length === 1) subj = cands[0];
+        else if (!tdept || !lv) r.err = 'مادة غير موجودة (اكتب القسم والفرقة ليُنشأ ما ينقص)';
+        else if (need('المادة')) {
+          subj = { id: 'v' + (++vn), name: it.subject, level: lv.name, level_id: lv.id, term: it.term ? (/فصل/.test(it.term) ? it.term : 'الفصل الدراسي ' + it.term) : null, department_id: tdept, lecturer_id: null, lecturer_name: '', virtual: true };
+          ss.push(subj); plan.subs.push(subj); r.news.push('مادة');
+        }
+      }
     }
+    if (r.err) { sd.length = mark[0]; sl.length = mark[1]; ss.length = mark[2]; plan.depts.length = mark[3]; plan.levels.length = mark[4]; plan.subs.length = mark[5]; r.news = []; out.push(r); return; }
+    var ex = schSlots.filter(function (t) { return t.subject_id === subj.id && !used[t.id]; })[0];
+    if (ex) { used[ex.id] = 1; r.op = 'update'; r.existId = ex.id; pool = pool.filter(function (t) { return t.id !== ex.id; }); }
+    var sk = shareKeyOf(it); r.shareKey = sk && shareCnt[sk] > 1 ? sk : '';
+    r.slot = { id: ex ? ex.id : 'new' + out.length, subject_id: subj.id, weekday: wd, start_time: st, lecture_minutes: ln, hall_id: hall ? hall.id : null, subjects: subj, shared_group: r.shareKey || null };
+    r.range = ttFmt(st) + ' → ' + ttFmtMin(ttMin(st) + ln);
+    r.warn = schConflictKinds(r.slot, pool); pool.push(r.slot);
     out.push(r);
   });
+  schPlan = plan;
   return out;
 }
 function renderSchImport() {
@@ -2714,13 +2826,14 @@ function renderSchImport() {
   if (!schImp) return;
   var ok = 0, cf = 0, bad = 0;
   schImp.forEach(function (r) {
-    var tr = el('tr'), s = r.slot;
-    [String(r.it.line), r.it.subject, r.it.day, r.it.start, r.it.hall || '—'].forEach(function (v) { tr.appendChild(el('td', '', v)); });
-    var st = r.err ? r.err : (r.op === 'update' ? 'تحديث موعد قائم' : 'موعد جديد') + (r.warn.length ? ' — تعارض: ' + r.warn.join('، ') : '');
+    var tr = el('tr'), it = r.it;
+    [String(it.line), it.subject, [it.dept, it.spec].filter(Boolean).join(' / ') || '—', [it.level, it.term].filter(Boolean).join(' — ') || '—', it.day, r.range || it.slot || it.start, it.hall || '—'].forEach(function (v) { tr.appendChild(el('td', '', v)); });
+    var st = r.err ? r.err : (r.op === 'update' ? 'تحديث موعد قائم' : 'موعد جديد') + (r.shareKey ? ' (محاضرة مشتركة)' : '') + (r.news.length ? ' — سيُنشأ: ' + r.news.join('، ') : '') + (r.warn.length ? ' — تعارض: ' + r.warn.join('، ') : '');
     var td = el('td', '', st); if (r.err) { td.style.color = '#b91c1c'; bad++; } else if (r.warn.length) { td.style.color = '#b45309'; cf++; ok++; } else ok++;
     tr.appendChild(td); tb.appendChild(tr);
   });
-  $('sx-sum').textContent = 'جاهز للاستيراد: ' + ok + ' (منها بتعارض: ' + cf + ') — مرفوض: ' + bad;
+  var np = schPlan || { depts: [], levels: [], subs: [] };
+  $('sx-sum').textContent = 'جاهز للاستيراد: ' + ok + ' (منها بتعارض: ' + cf + ') — مرفوض: ' + bad + (np.depts.length || np.levels.length || np.subs.length ? ' — سيُنشأ: ' + np.depts.length + ' قسم/تخصص، ' + np.levels.length + ' فرقة، ' + np.subs.length + ' مادة' : '');
 }
 $('sx-file').onchange = function () {
   var f = this.files && this.files[0]; schImp = null; renderSchImport(); msg('sx-msg', '');
@@ -2740,8 +2853,8 @@ $('sx-file').onchange = function () {
   if (isCsv) rd.readAsText(f, 'UTF-8'); else rd.readAsArrayBuffer(f);
 };
 $('sx-tpl').onclick = function () {
-  downloadXlsx([['المادة', 'الفرقة', 'الفصل', 'اليوم', 'وقت البدء', 'المدة (دقيقة)', 'القاعة'],
-    ['التربية المقارنة', 'الفرقة الرابعة', 'الأول', 'الأحد', '09:00', 90, 'مدرج 202']], 'الجدول', 'قالب استيراد الجدول');
+  downloadXlsx([['القسم', 'التخصص', 'الفرقة', 'الفصل الدراسي', 'المادة', 'اليوم', 'الموعد', 'القاعة (اختياري)'],
+    ['المكتبات والمعلومات وتكنولوجيا التعليم', 'حاسب آلي', 'الرابعة', 'الأول', 'فلسفة التربية', 'الأحد', '8 : 10', '']], 'الجدول', 'قالب استيراد الجدول');
 };
 $('sx-go').onclick = async function () {
   if (!schImp) return;
@@ -2749,17 +2862,46 @@ $('sx-go').onclick = async function () {
   var list = schImp.filter(function (r) { return !r.err && (withConf || !r.warn.length); });
   if (!list.length) { msg('sx-msg', 'لا توجد صفوف صالحة للاستيراد.', 'bad'); return; }
   $('sx-go').disabled = true;
+  var map = {}, made = { d: 0, l: 0, s: 0 };
+  var real = function (id) { return map[id] || id; };
   try {
-    var errs = 0, ins = [];
-    for (var i = 0; i < list.length; i++) {
-      var r = list[i], row = { subject_id: r.slot.subject_id, weekday: r.slot.weekday, start_time: r.slot.start_time, lecture_minutes: r.slot.lecture_minutes, hall_id: r.slot.hall_id };
+    // الكيانات الناقصة تُنشأ فقط لو كان لها صف مستورد
+    var needSub = {}; list.forEach(function (r) { needSub[r.slot.subject_id] = 1; });
+    var subsToMake = (schPlan.subs || []).filter(function (s) { return needSub[s.id]; });
+    var needDept = {}, needLv = {};
+    subsToMake.forEach(function (s) { var d = s.department_id; while (d) { needDept[d] = 1; var x = (schPlan.depts.filter(function (y) { return y.id === d; })[0]); d = x ? x.parent_id : null; } needLv[s.level_id] = 1; });
+    list.forEach(function (r) { /* مواد قائمة لا تحتاج إنشاء */ });
+    for (var i = 0; i < schPlan.depts.length; i++) {
+      var d = schPlan.depts[i]; if (!needDept[d.id]) continue;
+      msg('sx-msg', 'جارٍ إنشاء الأقسام…');
+      var rd1 = await sb.from('departments').insert({ name: d.name, parent_id: d.parent_id ? real(d.parent_id) : null }).select('id,name,parent_id').single();
+      if (rd1.error) throw rd1.error; map[d.id] = rd1.data.id; departments.push(rd1.data); made.d++;
+    }
+    for (var j = 0; j < schPlan.levels.length; j++) {
+      var lv = schPlan.levels[j]; if (!needLv[lv.id]) continue;
+      var rl = await sb.from('levels').insert({ name: lv.name, sort: lv.sort }).select('id,name,sort').single();
+      if (rl.error) throw rl.error; map[lv.id] = rl.data.id; levels.push(rl.data); made.l++;
+    }
+    for (var k = 0; k < subsToMake.length; k++) {
+      var s = subsToMake[k], dep = real(s.department_id);
+      var cr = courses.filter(function (x) { return nk(x.name) === nk(s.name) && (!x.department_id || courseFits(x, dep)); })[0];
+      if (!cr) { var rc = await sb.from('courses').insert({ name: s.name, code: '', department_id: null }).select('id,name,code,department_id').single(); if (rc.error) throw rc.error; courses.push(rc.data); cr = rc.data; }
+      var ri = await sb.from('subjects').insert({ course_id: cr.id, level_id: real(s.level_id), department_id: dep, term: s.term, lecturer_id: null, pending_email: null }).select('id').single();
+      if (ri.error) throw ri.error; map[s.id] = ri.data.id; made.s++;
+    }
+    var errs = 0, ins = [], gmap = {}, uid = function () { return window.crypto && crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (ch) { var q = Math.random() * 16 | 0; return (ch === 'x' ? q : (q & 3 | 8)).toString(16); }); };
+    for (var n = 0; n < list.length; n++) {
+      var r = list[n], row = { subject_id: real(r.slot.subject_id), weekday: r.slot.weekday, start_time: r.slot.start_time, lecture_minutes: r.slot.lecture_minutes, hall_id: r.slot.hall_id };
+      if (r.shareKey) { gmap[r.shareKey] = gmap[r.shareKey] || uid(); row.shared_group = gmap[r.shareKey]; }
       if (r.op === 'update') { var u = await sb.from('timetable').update(row).eq('id', r.existId); if (u.error) { errs++; if (/lecture_minutes/.test(u.error.message || '')) { msg('sx-msg', 'شغّل ملف schedule.sql في Supabase أولًا.', 'bad'); return; } } }
       else ins.push(row);
     }
     if (ins.length) { var x = await sb.from('timetable').insert(ins); if (x.error) { msg('sx-msg', /lecture_minutes/.test(x.error.message || '') ? 'شغّل ملف schedule.sql في Supabase أولًا.' : errText(x.error), 'bad'); return; } }
-    msg('sx-msg', 'تم استيراد ' + (list.length - errs) + ' موعد' + (errs ? ' (فشل ' + errs + ')' : '') + '.', errs ? 'bad' : 'ok');
-    schImp = null; $('sx-file').value = ''; renderSchImport(); await loadSchedule(true);
-  } finally { $('sx-go').disabled = false; }
+    var txt = 'تم استيراد ' + (list.length - errs) + ' موعد' + (errs ? ' (فشل ' + errs + ')' : '') + (made.d || made.l || made.s ? ' — أُنشئ: ' + made.d + ' قسم/تخصص، ' + made.l + ' فرقة، ' + made.s + ' مادة (ربط المحاضر من «القوائم والربط»)' : '') + '.';
+    schImp = null; $('sx-file').value = ''; renderSchImport(); fillDepts(); await loadSubjects(); await loadSchedule(true);
+    msg('sx-msg', txt, errs ? 'bad' : 'ok');
+  } catch (e) { msg('sx-msg', 'تعذّر الاستيراد: ' + errText(e), 'bad'); }
+  finally { $('sx-go').disabled = false; }
 };
 
 /* ===== نشر الجدول للطلاب برابط ===== */
