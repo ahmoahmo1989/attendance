@@ -374,7 +374,7 @@ catch(e){document.documentElement.dataset.theme='azhar';}
         </div>
         <p class="hint" id="d-risk-note"></p>
         <p><button id="d-risk-xlsx" type="button" data-ic="download">تحميل القائمة Excel</button></p>
-        <div class="scroll"><table><thead><tr><th>المادة</th><th>رقم الجلوس</th><th>الاسم</th><th>الحضور</th><th>النسبة</th></tr></thead><tbody id="d-risk-rows"></tbody></table></div>
+        <div class="scroll"><table><thead><tr><th>المادة</th><th>الرقم الأكاديمي</th><th>الاسم</th><th>الحضور</th><th>النسبة</th></tr></thead><tbody id="d-risk-rows"></tbody></table></div>
       </div>
       <div data-sub="lecturers"><div class="card" id="d-lect-card" hidden><h2 data-ic="users">نشاط المحاضرين</h2>
         <div class="scroll"><table><thead><tr><th>المحاضر</th><th>المواد</th><th>المحاضرات</th><th>آخر محاضرة</th></tr></thead><tbody id="d-lect-rows"></tbody></table></div></div></div>
@@ -405,12 +405,12 @@ catch(e){document.documentElement.dataset.theme='azhar';}
       </div>
       <label for="f-file">كشف الطلاب (Excel أو PDF أو CSV)</label>
       <input id="f-file" type="file" accept=".xlsx,.xls,.csv,.pdf,application/pdf">
-      <p class="hint" style="margin:4px 0 8px">ترتيب الأعمدة في الكشف: <b>المسلسل — اسم الطالب — رقم الجلوس</b>. ملف PDF لازم يكون نصيًا (غير ممسوح ضوئيًا).</p>
-      <label for="f-paste">أو الصق الأسماء (المسلسل ثم الاسم ثم رقم الجلوس في كل سطر)</label>
+      <p class="hint" style="margin:4px 0 8px">ترتيب الأعمدة في الكشف: <b>المسلسل — اسم الطالب — الرقم الأكاديمي</b>. ملف PDF لازم يكون نصيًا (غير ممسوح ضوئيًا).</p>
+      <label for="f-paste">أو الصق الأسماء (المسلسل ثم الاسم ثم الرقم الأكاديمي في كل سطر)</label>
       <textarea id="f-paste" placeholder="1	أحمد علي	1001&#10;2	سارة محمود	1002"></textarea>
       <div id="roster-preview" hidden>
         <p class="hint" id="roster-count"></p>
-        <div class="scroll"><table><thead><tr><th>رقم الجلوس</th><th>الاسم</th></tr></thead><tbody id="roster-rows"></tbody></table></div>
+        <div class="scroll"><table><thead><tr><th>الرقم الأكاديمي</th><th>الاسم</th></tr></thead><tbody id="roster-rows"></tbody></table></div>
       </div>
       <label class="opt" id="f-alldept-box" hidden style="display:block;margin:10px 0"><input id="f-alldept" type="checkbox" checked><span> إضافة نفس الطلاب إلى <b>كل مواد القسم</b> (نفس الفرقة ونفس الفصل الدراسي)</span></label>
       <p class="hint" id="f-alldept-hint" hidden></p>
@@ -478,7 +478,7 @@ catch(e){document.documentElement.dataset.theme='azhar';}
           <label class="opt" data-mode="qr" title="QR متجدد كل 30 ثانية (يحتاج شاشة عرض)"><input type="radio" name="s-mode-t" value="qr"><i class="ico" data-ic="qr"></i><span>QR</span></label>
           <label class="opt" title="التحقق من وجود الطالب داخل المدرج بالموقع"><input id="s-useloc" type="checkbox" checked><i class="ico" data-ic="pin"></i><span>الموقع</span></label>
           <label class="opt" title="منع تسجيل أكثر من طالب من نفس الجهاز"><input id="s-blockdev" type="checkbox"><i class="ico" data-ic="shield"></i><span>جهاز واحد</span></label>
-          <label class="opt" title="السماح بتسجيل حضور من ليس في الكشف (يكتب الطالب اسمه ورقم جلوسه)"><input id="s-allowunreg" type="checkbox"><i class="ico" data-ic="user-plus"></i><span>غير المسجّلين</span></label>
+          <label class="opt" title="السماح بتسجيل حضور من ليس في الكشف (يكتب الطالب اسمه ورقمه الأكاديمي)"><input id="s-allowunreg" type="checkbox"><i class="ico" data-ic="user-plus"></i><span>غير المسجّلين</span></label>
         </div>
         <p class="hint" style="margin:0" id="opt-hint"></p>
         <div id="loc-box">
@@ -535,8 +535,8 @@ catch(e){document.documentElement.dataset.theme='azhar';}
       <div class="card">
         <h2 data-ic="user-check">آخر من سجّل</h2>
         <ul class="plain" id="recent-att"></ul>
-        <label for="m-seat">تسجيل يدوي (طالب تعطّل موبايله): رقم الجلوس</label>
-        <div class="row"><input id="m-seat" inputmode="numeric" placeholder="رقم الجلوس"><button id="m-go" data-ic="check" type="button">سجّله حاضرًا</button></div>
+        <label for="m-seat">تسجيل يدوي (طالب تعطّل موبايله): الرقم الأكاديمي</label>
+        <div class="row"><input id="m-seat" inputmode="numeric" placeholder="الرقم الأكاديمي"><button id="m-go" data-ic="check" type="button">سجّله حاضرًا</button></div>
         <div id="m-msg" class="msg" hidden></div>
       </div>
       <div class="card" id="unreg-live-card" hidden>
@@ -558,9 +558,9 @@ catch(e){document.documentElement.dataset.theme='azhar';}
     </div>
     <div class="card" id="card-indiv" hidden>
       <h2 data-ic="user-check">تقرير حضور فردي</h2>
-      <p class="hint" style="margin-top:0">ابحث برقم الجلوس أو الاسم، واختر المادة (أو كل المواد) لتحصل على حضور الطالب في كل محاضرة ونسبته، مع تصدير Excel.</p>
+      <p class="hint" style="margin-top:0">ابحث بالرقم الأكاديمي أو الاسم، واختر المادة (أو كل المواد) لتحصل على حضور الطالب في كل محاضرة ونسبته، مع تصدير Excel.</p>
       <div class="row">
-        <div><label for="ind-q">رقم الجلوس أو الاسم</label><input id="ind-q" autocomplete="off" placeholder="مثال: 0006103441"></div>
+        <div><label for="ind-q">الرقم الأكاديمي أو الاسم</label><input id="ind-q" autocomplete="off" placeholder="مثال: 0006103441"></div>
         <div><label for="ind-subject">المادة</label><select id="ind-subject"></select></div>
       </div>
       <div class="row">
@@ -614,11 +614,11 @@ catch(e){document.documentElement.dataset.theme='azhar';}
         </div>
         <p class="hint" id="rep-range" style="margin:0 0 8px"></p>
         <p><button id="r-xlsx" type="button" data-ic="download">تحميل Excel</button></p>
-        <div class="scroll"><table><thead><tr><th>رقم الجلوس</th><th>الاسم</th><th>الحضور</th><th>الغياب</th><th>النسبة</th><th>مشتبه</th><th></th></tr></thead><tbody id="rep-rows"></tbody></table></div>
+        <div class="scroll"><table><thead><tr><th>الرقم الأكاديمي</th><th>الاسم</th><th>الحضور</th><th>الغياب</th><th>النسبة</th><th>مشتبه</th><th></th></tr></thead><tbody id="rep-rows"></tbody></table></div>
         <div id="rep-flags" hidden>
           <h3 data-ic="alert">حالات مشتبه بها (للمراجعة)</h3>
-          <p class="hint" style="margin-top:0">«نفس الجهاز»: جهاز سجّل أكثر من رقم جلوس في نفس المحاضرة. «جهاز مرتبط برقم آخر»: جهاز ظهر برقم جلوس مختلف عن أول رقم سجّل منه. قد يكون السبب جهازًا مشتركًا بين زملاء، والـIP للمراجعة فقط لأن شبكات كثيرة تتشارك نفس العنوان.</p>
-          <div class="scroll"><table><thead><tr><th>المحاضرة</th><th>رقم الجلوس</th><th>الاسم</th><th>السبب</th><th>IP</th></tr></thead><tbody id="rep-flag-rows"></tbody></table></div>
+          <p class="hint" style="margin-top:0">«نفس الجهاز»: جهاز سجّل أكثر من رقم أكاديمي في نفس المحاضرة. «جهاز مرتبط برقم آخر»: جهاز ظهر بالرقم الأكاديمي مختلف عن أول رقم سجّل منه. قد يكون السبب جهازًا مشتركًا بين زملاء، والـIP للمراجعة فقط لأن شبكات كثيرة تتشارك نفس العنوان.</p>
+          <div class="scroll"><table><thead><tr><th>المحاضرة</th><th>الرقم الأكاديمي</th><th>الاسم</th><th>السبب</th><th>IP</th></tr></thead><tbody id="rep-flag-rows"></tbody></table></div>
         </div>
         <p class="hint">الصفوف الحمراء: نسبة الحضور أقل من 75%. الصفوف الصفراء: فيها تسجيل «مشتبه» للمراجعة.</p>
       </div>
@@ -731,7 +731,7 @@ catch(e){document.documentElement.dataset.theme='azhar';}
         <div><label for="pr-status">الحالة</label><select id="pr-status">
           <option value="">كل الحالات</option><option value="matched">تم تسجيل الحضور</option><option value="no_session">بدون جلسة</option>
           <option value="no_device">جهاز/قاعة غير مفعّل</option><option value="not_in_roster">ليس في الكشف</option><option value="pending">لم تُطابق بعد</option><option value="error">خطأ</option></select></div>
-        <div><label for="pr-student">رقم الجلوس (اختياري)</label><input id="pr-student" inputmode="numeric" autocomplete="off" placeholder="كل الطلاب"></div>
+        <div><label for="pr-student">الرقم الأكاديمي (اختياري)</label><input id="pr-student" inputmode="numeric" autocomplete="off" placeholder="كل الطلاب"></div>
       </div>
       <div class="opts" style="grid-template-columns:repeat(3,1fr)">
         <button type="button" class="opt" id="pr-go" title="عرض التقرير"><i class="ico" data-ic="refresh"></i><span>عرض</span></button>
@@ -746,7 +746,7 @@ catch(e){document.documentElement.dataset.theme='azhar';}
         <div class="scroll"><table><thead><tr><th>اليوم</th><th>البصمات</th><th>الطلاب</th><th>تم تسجيل حضورهم</th></tr></thead><tbody id="pr-days"></tbody></table></div>
         <h3 data-ic="list">البصمات</h3>
         <p class="hint" id="pr-count" style="margin:0 0 6px"></p>
-        <div class="scroll"><table><thead><tr><th>الوقت</th><th>رقم الجلوس</th><th>الاسم</th><th>الجهاز</th><th>الحالة</th><th>المادة</th></tr></thead><tbody id="pr-rows"></tbody></table></div>
+        <div class="scroll"><table><thead><tr><th>الوقت</th><th>الرقم الأكاديمي</th><th>الاسم</th><th>الجهاز</th><th>الحالة</th><th>المادة</th></tr></thead><tbody id="pr-rows"></tbody></table></div>
       </div>
     </div>
   </section>
@@ -907,7 +907,7 @@ catch(e){document.documentElement.dataset.theme='azhar';}
       </div>
       <div id="imp-preview" hidden>
         <ul class="plain" id="imp-sum"></ul>
-        <div class="scroll"><table><thead><tr><th>الكود في الملف</th><th>رقم الجلوس بعد التحويل</th><th>الجهاز</th><th>الوقت (القاهرة)</th></tr></thead><tbody id="imp-rows"></tbody></table></div>
+        <div class="scroll"><table><thead><tr><th>الكود في الملف</th><th>الرقم الأكاديمي بعد التحويل</th><th>الجهاز</th><th>الوقت (القاهرة)</th></tr></thead><tbody id="imp-rows"></tbody></table></div>
         <button id="imp-go" data-ic="upload" class="primary" type="button">استيراد البصمات</button>
       </div>
       <ul class="plain" id="imp-res"></ul>
@@ -1276,13 +1276,13 @@ async function toggleRoster(s, card) {
   var rows;
   try { rows = await fetchRoster(s.id); } catch (e) { box.innerHTML = ''; box.appendChild(el('p', 'hint', errText(e))); return; }
   box.innerHTML = '';
-  var bar = el('div', 'row'), q = el('input'); q.placeholder = 'بحث بالاسم أو رقم الجلوس'; q.autocomplete = 'off';
+  var bar = el('div', 'row'), q = el('input'); q.placeholder = 'بحث بالاسم أو الرقم الأكاديمي'; q.autocomplete = 'off';
   var xl = el('button', '', 'تحميل Excel'); xl.type = 'button'; xl.setAttribute('data-ic', 'download');
   bar.appendChild(q); bar.appendChild(xl); box.appendChild(bar);
   var cnt = el('p', 'hint'); cnt.style.margin = '6px 0'; box.appendChild(cnt);
   var wrap = el('div', 'scroll'); wrap.style.maxHeight = '340px'; wrap.style.overflowY = 'auto';
   var tb = el('tbody'), tbl = el('table'), th = el('thead'), htr = el('tr');
-  ['#', 'رقم الجلوس', 'الاسم'].forEach(function (h) { htr.appendChild(el('th', '', h)); });
+  ['#', 'الرقم الأكاديمي', 'الاسم'].forEach(function (h) { htr.appendChild(el('th', '', h)); });
   th.appendChild(htr); tbl.appendChild(th); tbl.appendChild(tb); wrap.appendChild(tbl); box.appendChild(wrap);
   function draw() {
     var f = q.value.trim().toLowerCase(); tb.innerHTML = '';
@@ -1293,7 +1293,7 @@ async function toggleRoster(s, card) {
   q.addEventListener('input', draw); draw();
   xl.onclick = function () {
     exportStyled({ sheetName: 'الكشف', title: 'كشف طلاب مادة: ' + [s.name, s.level, s.term].filter(Boolean).join(' — ') + '   (عدد الطلاب: ' + rows.length + ')', fileName: 'كشف - ' + (s.name || 'مادة'),
-      head: ['#', 'رقم الجلوس', 'الاسم'], rows: rows.map(function (r, i) { return [i + 1, r.seat, r.name]; }), widths: [7, 16, 46], left: [2], msgId: 'sub-flash' });
+      head: ['#', 'الرقم الأكاديمي', 'الاسم'], rows: rows.map(function (r, i) { return [i + 1, r.seat, r.name]; }), widths: [7, 16, 46], left: [2], msgId: 'sub-flash' });
   };
 }
 function toggleMove(s, card) {
@@ -1414,8 +1414,8 @@ function normSeat(s) {
     .replace(/[۰-۹]/g, function (d) { return String(d.charCodeAt(0) - 0x06F0); }).replace(/\s+/g, '').toUpperCase();
 }
 
-// الترتيب المعتمد للكشوف (Excel أو PDF أو نص ملصق): المسلسل — اسم الطالب — رقم الجلوس.
-// ويقبل أيضًا الكشف القديم من عمودين (رقم الجلوس والاسم بأي ترتيب).
+// الترتيب المعتمد للكشوف (Excel أو PDF أو نص ملصق): المسلسل — اسم الطالب — الرقم الأكاديمي.
+// ويقبل أيضًا الكشف القديم من عمودين (الرقم الأكاديمي والاسم بأي ترتيب).
 function rowsToStudents(rows) {
   var cand = [];
   rows.forEach(function (r) {
@@ -1475,10 +1475,10 @@ async function pdfToRows(buf) {
       return { t: out, x: c.x };
     });
   });
-  // اتجاه الجدول: من ترويسة المسلسل/رقم الجلوس، وإلا بتصويت الأرقام (المسلسل أصغر من رقم الجلوس)
+  // اتجاه الجدول: من ترويسة المسلسل/الرقم الأكاديمي، وإلا بتصويت الأرقام (المسلسل أصغر من الرقم الأكاديمي)
   var rtlVotes = 0, ltrVotes = 0, dir = 0;
   rows.forEach(function (r) {
-    var ser = r.filter(function (c) { return /^(ال)?مسلسل$|^م$|^م$/.test(c.t.replace(/\s/g, '')); })[0], seat = r.filter(function (c) { return /رقم\s*الجلوس|الجلوس/.test(c.t); })[0];
+    var ser = r.filter(function (c) { return /^(ال)?مسلسل$|^م$|^م$/.test(c.t.replace(/\s/g, '')); })[0], seat = r.filter(function (c) { return /رقم\s*الجلوس|الجلوس|(الرقم|رقم)\s*الأكاديمي|الأكاديمي|الاكاديمي/.test(c.t); })[0];
     if (!dir && ser && seat) dir = ser.x > seat.x ? 1 : -1;
     if (r.length >= 3) {
       var rd = r.slice().sort(function (a, b) { return b.x - a.x; }), f = rd[0].t.replace(/\D/g, ''), l = rd[rd.length - 1].t.replace(/\D/g, '');
@@ -1497,10 +1497,10 @@ function setStudents(res, source) {
   students.slice(0, 5).forEach(function (s) { var tr = el('tr'); tr.appendChild(el('td', '', s.seat)); tr.appendChild(el('td', '', s.name)); tb.appendChild(tr); });
   var txt = 'تمت قراءة ' + students.length + ' طالب' + (source ? ' من ' + source : '') + '.';
   if (res.dropped) txt += ' تم تجاهل ' + res.dropped + ' صف غير صالح (مثل صف العناوين).';
-  if (dup) txt += ' يوجد ' + dup + ' رقم جلوس مكرر وسيُحفظ مرة واحدة فقط.';
+  if (dup) txt += ' يوجد ' + dup + ' رقم أكاديمي مكرر وسيُحفظ مرة واحدة فقط.';
   $('roster-count').textContent = txt;
   $('roster-preview').hidden = !students.length;
-  if (!students.length) msg('roster-msg', 'لم أجد أي طالب في الملف. تأكد من الترتيب: المسلسل — اسم الطالب — رقم الجلوس.', 'bad'); else msg('roster-msg', '');
+  if (!students.length) msg('roster-msg', 'لم أجد أي طالب في الملف. تأكد من الترتيب: المسلسل — اسم الطالب — الرقم الأكاديمي.', 'bad'); else msg('roster-msg', '');
 }
 
 $('f-file').onchange = function () {
@@ -1607,7 +1607,7 @@ $('roster-save').onclick = async function () {
       if (ins.error) throw ins.error;
       if (students.length) {
         var r2 = await saveStudents(ins.data.id, students);
-        text = 'تم إنشاء المادة وفيها ' + r2.total + ' طالب' + (r2.duplicates ? ' (' + r2.duplicates + ' رقم جلوس مكرر تم تجاهله)' : '') + '.';
+        text = 'تم إنشاء المادة وفيها ' + r2.total + ' طالب' + (r2.duplicates ? ' (' + r2.duplicates + ' رقم أكاديمي مكرر تم تجاهله)' : '') + '.';
       } else {
         text = 'تم إنشاء المادة بدون طلاب. أضف الكشف لاحقًا بزر «إضافة طلاب» في قائمة موادي.';
       }
@@ -1758,7 +1758,7 @@ function fillIndSubjects() {
 }
 async function indSearch() {
   var q = $('ind-q').value.trim().replace(/[,()*%\\]/g, ' ').trim();
-  if (!q) { msg('ind-msg', 'اكتب رقم الجلوس أو جزءًا من الاسم.', 'bad'); return; }
+  if (!q) { msg('ind-msg', 'اكتب الرقم الأكاديمي أو جزءًا من الاسم.', 'bad'); return; }
   msg('ind-msg', 'جارٍ البحث…'); $('ind-pick').hidden = true; $('ind-box').hidden = true;
   var filter = isNum(q) ? 'seat.eq.' + normSeat(q) + ',name.ilike.*' + q + '*' : 'name.ilike.*' + q.replace(/\s+/g, '*') + '*';
   var qb = sb.from('subject_students').select('seat,name,subject_id').or(filter).limit(400);
@@ -1903,9 +1903,9 @@ $('pr-xlsx').onclick = async function () {
   var f = [];
   if ($('pr-from').value || $('pr-to').value) f.push('من ' + ($('pr-from').value || 'البداية') + ' إلى ' + ($('pr-to').value || 'اليوم'));
   if ($('pr-status').value) f.push(PR_ST[$('pr-status').value]);
-  if ($('pr-student').value.trim()) f.push('رقم الجلوس ' + $('pr-student').value.trim());
+  if ($('pr-student').value.trim()) f.push('الرقم الأكاديمي ' + $('pr-student').value.trim());
   exportStyled({ sheetName: 'البصمات', title: 'تقرير بصمات الأجهزة' + (f.length ? ' — ' + f.join(' — ') : '') + '   (عدد البصمات: ' + rows.length + ')', fileName: 'بصمات الأجهزة',
-    head: ['الوقت (القاهرة)', 'رقم الجلوس', 'الاسم', 'الجهاز', 'الحالة', 'المادة'], rows: rows, widths: [20, 14, 32, 9, 22, 32], left: [2, 5], msgId: 'pr-msg' });
+    head: ['الوقت (القاهرة)', 'الرقم الأكاديمي', 'الاسم', 'الجهاز', 'الحالة', 'المادة'], rows: rows, widths: [20, 14, 32, 9, 22, 32], left: [2, 5], msgId: 'pr-msg' });
 };
 
 /* ============ جدولي ============ */
@@ -2158,7 +2158,7 @@ $('back').onclick = function () { showSessPane('card-start'); liveId = ''; show(
 
 $('m-go').onclick = async function () {
   var seat = $('m-seat').value.trim();
-  if (!seat) { msg('m-msg', 'اكتب رقم الجلوس.', 'bad'); return; }
+  if (!seat) { msg('m-msg', 'اكتب الرقم الأكاديمي.', 'bad'); return; }
   var r = await sb.rpc('manual_mark', { p_session: liveId, p_seat: seat });
   if (r.error) { msg('m-msg', errText(r.error), 'bad'); return; }
   msg('m-msg', r.data.message, 'ok'); $('m-seat').value = ''; tick();
@@ -2205,7 +2205,7 @@ function renderReport() {
   $('rep-avg').textContent = matrix.students.length && total ? (Math.round(sumPct * 10 / matrix.students.length) / 10) + '%' : '—';
   var fb = $('rep-flag-rows'); fb.innerHTML = '';
   matrix.flags.forEach(function (f) {
-    var tr = el('tr'), why = f.reason === 'same' ? 'نفس الجهاز سجّل أكثر من رقم جلوس في هذه المحاضرة' : 'جهاز مرتبط برقم الجلوس ' + f.first;
+    var tr = el('tr'), why = f.reason === 'same' ? 'نفس الجهاز سجّل أكثر من رقم أكاديمي في هذه المحاضرة' : 'جهاز مرتبط بالرقم الأكاديمي ' + f.first;
     [f.label, f.seat, f.name, why, (f.ip || '—') + (f.dev ? '  (جهاز …' + f.dev + ')' : '')].forEach(function (v, i) { var td = el('td', '', v); if (i === 4) td.dir = 'ltr'; tr.appendChild(td); });
     fb.appendChild(tr);
   });
@@ -2316,7 +2316,7 @@ async function fetchBuf(url) { var r = await fetch(url); if (!r.ok) throw new Er
 function exportReportPlain() {
   if (!matrix || typeof XLSX === 'undefined') { msg('rep-msg', 'تعذّر تحميل مكتبة Excel.', 'bad'); return; }
   var total = matrix.sessions.length;
-  var head = ['رقم الجلوس', 'الاسم'].concat(matrix.sessions.map(function (s) { return s.label; })).concat(['عدد المحاضرات', 'الحضور', 'الغياب', 'النسبة %', 'مشتبه (عدد المحاضرات)']);
+  var head = ['الرقم الأكاديمي', 'الاسم'].concat(matrix.sessions.map(function (s) { return s.label; })).concat(['عدد المحاضرات', 'الحضور', 'الغياب', 'النسبة %', 'مشتبه (عدد المحاضرات)']);
   var aoa = [head];
   matrix.students.forEach(function (s) {
     aoa.push([s.seat, s.name].concat(s.marks.map(function (m, i) { return m ? (s.sus[i] ? 'حاضر (مشتبه)' : 'حاضر') : 'غائب'; })).concat([total, s.present, total - s.present, total ? s.pct : '', s.susN || 0]));
@@ -2365,7 +2365,7 @@ $('r-xlsx').onclick = function () {
   if (!matrix) return;
   var total = matrix.sessions.length, sub = matrixSubject || {};
   var period = ($('r-from').value || $('r-to').value) ? 'من ' + ($('r-from').value || 'البداية') + ' إلى ' + ($('r-to').value || 'اليوم') : '';
-  var head = ['رقم الجلوس', 'الاسم'].concat(matrix.sessions.map(function (x) { return x.label; })).concat(['عدد المحاضرات', 'الحضور', 'الغياب', 'النسبة %', 'مشتبه (عدد المحاضرات)']);
+  var head = ['الرقم الأكاديمي', 'الاسم'].concat(matrix.sessions.map(function (x) { return x.label; })).concat(['عدد المحاضرات', 'الحضور', 'الغياب', 'النسبة %', 'مشتبه (عدد المحاضرات)']);
   var rows = matrix.students.map(function (st) {
     return [String(st.seat), st.name].concat(st.marks.map(function (m, i) { return m ? (st.sus[i] ? 'حاضر (مشتبه)' : 'حاضر') : 'غائب'; }))
       .concat([total, st.present, total - st.present, total ? st.pct : '', st.susN || 0]);
@@ -3458,7 +3458,7 @@ function parsePunchSheet(rows) {
   return { kind: kind, items: items, skipped: skipped, dmy: a12 > 0 && b12 === 0, conflict: a12 > 0 && b12 > 0, hasDevCol: cDev >= 0 };
 }
 
-// تحويل كود ADTime (10 أرقام بأصفار في الأول) إلى رقم الجلوس
+// تحويل كود ADTime (10 أرقام بأصفار في الأول) إلى الرقم الأكاديمي
 var IMP_METHODS = {
   strip: function (c) { return normSeat(c).replace(/^0+(?=.)/, ''); },
   last8: function (c) { var s = normSeat(c).replace(/^0+(?=.)/, ''); return s.length > 8 ? s.slice(-8) : s; },
@@ -3502,7 +3502,7 @@ function fillImpDevices() {
   if (cur) s.value = cur; else if (devices.length === 1) s.value = String(devices[0].device_no);
 }
 
-// يفحص مدى تطابق الأكواد مع أرقام الجلوس في كشوف المواد (للمعاينة فقط)
+// يفحص مدى تطابق الأكواد مع الأرقام الأكاديمية في كشوف المواد (للمعاينة فقط)
 async function impCheckRoster() {
   imp.rates = null;
   var codes = {}; imp.parsed.items.forEach(function (it) { codes[it.code] = 1; });
@@ -3547,8 +3547,8 @@ function renderImpPreview() {
   if (p.skipped || b.bad) li('تم تجاهل ' + (p.skipped + b.bad) + ' خلية أو صف غير صالح (وقت أو تاريخ غير مفهوم).');
   if (imp.rates) {
     var n = imp.rates[m];
-    li('رقم الجلوس بعد التحويل («' + IMP_LABEL[m] + '») موجود في كشوف المواد لـ ' + n + ' من ' + imp.students + ' طالب.', n === 0 ? 'msg bad' : '');
-    if (n === 0) li('ولا رقم مطابق للكشوف. الأرجح أن كود الجهاز مختلف عن رقم الجلوس، فلن تُسجَّل حضورًا. جرّب طريقة تحويل تانية أو راجع العينة.', 'msg bad');
+    li('الرقم الأكاديمي بعد التحويل («' + IMP_LABEL[m] + '») موجود في كشوف المواد لـ ' + n + ' من ' + imp.students + ' طالب.', n === 0 ? 'msg bad' : '');
+    if (n === 0) li('ولا رقم مطابق للكشوف. الأرجح أن كود الجهاز مختلف عن الرقم الأكاديمي، فلن تُسجَّل حضورًا. جرّب طريقة تحويل تانية أو راجع العينة.', 'msg bad');
   } else li('تعذّر فحص مطابقة الأكواد مع الكشوف (صلاحيات). الاستيراد سيعمل والمطابقة تتم في Supabase.');
   var tb = $('imp-rows'); tb.innerHTML = '';
   b.list.slice(0, 6).forEach(function (x) {
@@ -3804,7 +3804,7 @@ function downloadXlsx(aoa, sheetName, fileName) {
 $('d-risk-xlsx').onclick = function () {
   var rows = riskRows().map(function (r) { return [r.subject, r.seat, r.name, r.attended, r.sessions, r.pct]; });
   exportStyled({ sheetName: 'المعرضون للحرمان', title: 'الطلاب المعرَّضون للحرمان (نسبة الحضور أقل من ' + dash.threshold + '%)   (العدد: ' + rows.length + ')', fileName: 'معرضون للحرمان (أقل من ' + dash.threshold + '%)',
-    head: ['المادة', 'رقم الجلوس', 'الاسم', 'الحضور', 'عدد المحاضرات', 'النسبة %'], rows: rows, widths: [30, 14, 32, 10, 14, 10], left: [0, 2], msgId: 'dash-msg' });
+    head: ['المادة', 'الرقم الأكاديمي', 'الاسم', 'الحضور', 'عدد المحاضرات', 'النسبة %'], rows: rows, widths: [30, 14, 32, 10, 14, 10], left: [0, 2], msgId: 'dash-msg' });
 };
 
 /* ============ القوائم والربط ============ */
