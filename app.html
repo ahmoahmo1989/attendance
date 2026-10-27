@@ -1778,7 +1778,66 @@ $('r-quick').onclick = function (e) {
   $('r-from').value = from; $('r-to').value = to; markQuick(q); renderReport();
 };
 
-$('r-xlsx').onclick = function () {
+/* يبني ملف تقرير الحضور بنفس تنسيق النموذج + هيدر الجامعة والكلية */
+async function buildReportXlsx(ExcelJS, matrix, subject, period, logos) {
+  var total = matrix.sessions.length, nCols = 2 + total + 5;
+  var wb = new ExcelJS.Workbook();
+  var title = ((subject && subject.name) || 'الحضور').replace(/[\[\]\*\?\/\\:]/g, '-').substring(0, 31);
+  var ws = wb.addWorksheet(title, { views: [{ rightToLeft: true }],
+    pageSetup: { orientation: 'landscape', paperSize: 9, fitToPage: true, fitToWidth: 1, fitToHeight: 0, horizontalCentered: true } });
+  var F = { name: 'Arial', size: 12 };
+  ws.getColumn(1).width = 12.8; ws.getColumn(2).width = 30.8;
+  for (var i = 3; i < 3 + total; i++) ws.getColumn(i).width = 16.7;
+  var tail = [11.7, 10, 10, 10, 18];
+  tail.forEach(function (w, k) { ws.getColumn(3 + total + k).width = w; });
+
+  // الهيدر: نصوص على اليمين، الشعارات على اليسار
+  [['جامعة الأزهر', 15], ['كلية التربية بنين بالقاهرة', 14], ['وحدة نظم المعلومات والكنترول الالكتروني', 12]].forEach(function (t, k) {
+    var r = ws.getRow(k + 1); r.height = 28;
+    ws.mergeCells(k + 1, 1, k + 1, 2);
+    var c = r.getCell(1); c.value = t[0]; c.font = { name: 'Arial', size: t[1], bold: true, color: { argb: 'FF0B6B4F' } };
+    c.alignment = { horizontal: 'center', vertical: 'middle', readingOrder: 'rtl' };
+  });
+  ws.getRow(4).height = 10;
+  var sub = [subject && subject.name, subject && subject.level, subject && subject.term].filter(Boolean).join(' — ');
+  ws.mergeCells(5, 1, 5, nCols);
+  var tc = ws.getCell(5, 1); tc.value = 'تقرير حضور مادة: ' + sub + (period ? '  (' + period + ')' : '');
+  tc.font = { name: 'Arial', size: 13, bold: true }; tc.alignment = { horizontal: 'center', vertical: 'middle', readingOrder: 'rtl' };
+  ws.getRow(5).height = 28; ws.getRow(6).height = 8;
+  if (logos && logos.azhar) {
+    var a = wb.addImage({ buffer: logos.azhar, extension: 'png' });
+    ws.addImage(a, { tl: { col: nCols - 1 + 0.12, row: 0.08 }, ext: { width: 92, height: 92 }, editAs: 'oneCell' });
+  }
+  if (logos && logos.faculty) {
+    var f = wb.addImage({ buffer: logos.faculty, extension: 'png' });
+    ws.addImage(f, { tl: { col: nCols - 3 + 0.5, row: 0.08 }, ext: { width: 92, height: 89 }, editAs: 'oneCell' });
+  }
+
+  // الجدول (نفس أعمدة النموذج)
+  var head = ['رقم الجلوس', 'الاسم'].concat(matrix.sessions.map(function (s) { return s.label; })).concat(['عدد المحاضرات', 'الحضور', 'الغياب', 'النسبة %', 'مشتبه (عدد المحاضرات)']);
+  var HR = 7;
+  function put(rowIdx, arr) {
+    var r = ws.getRow(rowIdx); r.height = 24.95;
+    arr.forEach(function (v, k) { var c = r.getCell(k + 1); c.value = v; c.font = F; if (k !== 1) c.alignment = { horizontal: 'center', vertical: 'middle' }; else c.alignment = { vertical: 'middle' }; });
+  }
+  put(HR, head);
+  matrix.students.forEach(function (s, n) {
+    put(HR + 1 + n, [String(s.seat), s.name].concat(s.marks.map(function (m, i) { return m ? (s.sus[i] ? 'حاضر (مشتبه)' : 'حاضر') : 'غائب'; }))
+      .concat([total, s.present, total - s.present, total ? s.pct : '', s.susN || 0]));
+  });
+  ws.pageSetup.printTitlesRow = HR + ':' + HR;
+  return wb.xlsx.writeBuffer();
+}
+
+function loadScriptOnce(src) {
+  return new Promise(function (res, rej) {
+    if (window.ExcelJS) return res();
+    var t = document.createElement('script'); t.src = src; t.onload = function () { res(); }; t.onerror = function () { rej(new Error('load')); };
+    document.head.appendChild(t);
+  });
+}
+async function fetchBuf(url) { var r = await fetch(url); if (!r.ok) throw new Error('img'); return new Uint8Array(await r.arrayBuffer()); }
+function exportReportPlain() {
   if (!matrix || typeof XLSX === 'undefined') { msg('rep-msg', 'تعذّر تحميل مكتبة Excel.', 'bad'); return; }
   var total = matrix.sessions.length;
   var head = ['رقم الجلوس', 'الاسم'].concat(matrix.sessions.map(function (s) { return s.label; })).concat(['عدد المحاضرات', 'الحضور', 'الغياب', 'النسبة %', 'مشتبه (عدد المحاضرات)']);
@@ -1798,6 +1857,28 @@ $('r-xlsx').onclick = function () {
   link.download = 'حضور - ' + ((matrixSubject && matrixSubject.name) || 'مادة').replace(/[\\\/:*?"<>|]/g, '-') + (($('r-from').value || $('r-to').value) ? ' (' + ($('r-from').value || 'البداية') + ' إلى ' + ($('r-to').value || 'اليوم') + ')' : '') + '.xlsx';
   document.body.appendChild(link); link.click(); link.remove();
   setTimeout(function () { URL.revokeObjectURL(link.href); }, 4000);
+}
+
+$('r-xlsx').onclick = async function () {
+  if (!matrix) return;
+  msg('rep-msg', 'جارٍ تجهيز ملف Excel…');
+  try {
+    await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js');
+  } catch (e) { msg('rep-msg', ''); exportReportPlain(); return; }
+  var logos = {};
+  try { logos.azhar = await fetchBuf('logo-azhar.png'); } catch (e) {}
+  try { logos.faculty = await fetchBuf('logo-faculty.png'); } catch (e) {}
+  var period = ($('r-from').value || $('r-to').value) ? 'من ' + ($('r-from').value || 'البداية') + ' إلى ' + ($('r-to').value || 'اليوم') : '';
+  var buf;
+  try { buf = await buildReportXlsx(window.ExcelJS, matrix, matrixSubject, period, logos); }
+  catch (e) { msg('rep-msg', ''); exportReportPlain(); return; }
+  var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  var link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'حضور - ' + ((matrixSubject && matrixSubject.name) || 'مادة').replace(/[\\\/:*?"<>|]/g, '-') + (period ? ' (' + period.replace('من ', '').replace(' إلى ', ' إلى ') + ')' : '') + '.xlsx';
+  document.body.appendChild(link); link.click(); link.remove();
+  setTimeout(function () { URL.revokeObjectURL(link.href); }, 4000);
+  msg('rep-msg', 'تم تحميل الملف.', 'ok');
 };
 
 /* ============ الإدارة ============ */
