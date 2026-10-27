@@ -1986,11 +1986,13 @@ function fillPrDepts() {
 var prSumCache = null;
 async function loadPunchReport(useCache) {
   useCache = (useCache === true);
-  if ($('pd-dept').options.length <= 1) fillSelDepts('pd-dept');
   msg('pr-msg', 'جارٍ التحميل…');
   var a = prArgs(300);
   try {
-    if ($('pr-dept').options.length <= 1) fillPrDepts();
+    if (!departments.length) { var dd = await sb.from('departments').select('id,name,parent_id').order('name'); departments = dd.data || []; }
+    if (!subjects.length) { try { await loadSubjects(); } catch (e0) {} }
+    if (departments.length && $('pr-dept').options.length <= 1) fillPrDepts();
+    if (departments.length && $('pd-dept').options.length <= 1) fillSelDepts('pd-dept');
     var skey = JSON.stringify([a.p_from, a.p_to]), smP;
     if (useCache && prSumCache && prSumCache.key === skey) smP = Promise.resolve(prSumCache.res);
     else smP = sb.rpc('punch_report_summary', { p_from: a.p_from, p_to: a.p_to });
