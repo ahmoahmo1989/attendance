@@ -741,6 +741,10 @@ catch(e){document.documentElement.dataset.theme='azhar';}
       <button type="button" data-prs="day" data-ic="calendar">حسب اليوم</button>
       <button type="button" data-prs="rows" data-ic="list">البصمات</button>
     </div>
+    <div id="pr-top" hidden>
+      <div class="stats" id="pr-stats"></div>
+      <p class="hint" id="pr-range" style="margin:0 0 14px"></p>
+    </div>
     <div class="card" id="mp-box" hidden data-pane-card="1">
       <label class="opt" id="mp-opt" style="flex-direction:row;justify-content:flex-start;gap:12px;min-height:0;padding:12px 14px;text-align:start" title="عند التفعيل يرى مسؤولو الأقسام تقرير بصمات طلاب أقسامهم ويطبّقونها على مواد أقسامهم."><input id="mp-on" type="checkbox"><i class="ico" data-ic="shield-check"></i><span>السماح لمسؤولي الأقسام برؤية تقرير البصمات (لأقسامهم فقط)</span></label>
       <div id="mp-msg" class="msg" hidden></div>
@@ -777,8 +781,6 @@ catch(e){document.documentElement.dataset.theme='azhar';}
       <div id="pr-msg" class="msg" hidden></div>
     </div>
     <div id="pr-box" hidden>
-      <div class="stats" id="pr-stats" data-prs="main"></div>
-      <p class="hint" id="pr-range" data-prs="main" style="margin:0 0 12px"></p>
       <div class="card" data-prs="dept">
         <h2 data-ic="sitemap">حسب القسم</h2>
         <p class="hint" style="margin-top:0">اضغط على أي قسم لعرض بصماته فقط.</p>
@@ -1119,6 +1121,7 @@ var curPRS = 'main', punPane = 'pn-report';
 function applyPRS() {
   [].forEach.call(document.querySelectorAll('#tab-punches [data-prs]'), function (c) { if (c.tagName === 'BUTTON') c.classList.toggle('on', c.dataset.prs === curPRS); else c.hidden = (c.dataset.prs !== curPRS); });
   $('pr-sub').hidden = (punPane !== 'pn-report');
+  $('pr-top').hidden = (punPane !== 'pn-report' || $('pr-box').hidden);
   if (punPane === 'pn-report') $('pn-report').hidden = (curPRS !== 'main');
 }
 document.addEventListener('click', function (e) {
@@ -1934,9 +1937,10 @@ var prSeatMap = {};
 async function prSeatDepts(seats) {
   var need = seats.filter(function (x) { return !(x in prSeatMap); });
   var subjDept = {}; subjects.forEach(function (x) { subjDept[x.id] = x.department_id || ''; });
-  for (var i = 0; i < need.length; i += 40) {
-    var chunk = need.slice(i, i + 40), from = 0;
-    chunk.forEach(function (x) { prSeatMap[x] = {}; });
+  need.forEach(function (x) { prSeatMap[x] = {}; });
+  var chunks = []; for (var i = 0; i < need.length; i += 60) chunks.push(need.slice(i, i + 60));
+  async function one(chunk) {
+    var from = 0;
     for (;;) {
       var r = await sb.from('subject_students').select('seat,subject_id').in('seat', chunk).range(from, from + 999);
       if (r.error) throw r.error;
@@ -1944,6 +1948,7 @@ async function prSeatDepts(seats) {
       if ((r.data || []).length < 1000) break; from += 1000;
     }
   }
+  for (var k = 0; k < chunks.length; k += 6) await Promise.all(chunks.slice(k, k + 6).map(one));
 }
 function prDeptSet(id) {
   var set = {}; if (!id) return null; set[id] = 1;
@@ -1954,39 +1959,48 @@ function prDeptNames(seat) {
   var ids = Object.keys(prSeatMap[seat] || {});
   return ids.length ? ids.map(function (i) { return (deptPath(i) || '').split(' / ').pop(); }).join('، ') : 'غير مسجَّل في كشف';
 }
-async function prFetchRows(lim) {
-  var ls = await sb.rpc('punch_report_list', prArgs(lim));
+var prCache = null;
+async function prFetchAll(lim, useCache) {
+  var a = prArgs(lim), key = JSON.stringify(a);
+  if (useCache && prCache && prCache.key === key) return prCache.rows;
+  var ls = await sb.rpc('punch_report_list', a);
   if (ls.error) throw ls.error;
   var rows = ls.data || [];
   var seen = {}, seats = []; rows.forEach(function (x) { if (!seen[x.student_no]) { seen[x.student_no] = 1; seats.push(x.student_no); } });
   await prSeatDepts(seats);
-  var f = prDeptSet($('pr-dept').value);
-  if (f) rows = rows.filter(function (x) { return Object.keys(prSeatMap[x.student_no] || {}).some(function (d) { return f[d]; }); });
+  prCache = { key: key, rows: rows };
   return rows;
 }
-function fillSelDepts(id) {
-  var sel = $(id), cur = sel.value; sel.innerHTML = '';
-  var o = el('option', '', 'كل الأقسام'); o.value = ''; sel.appendChild(o);
-  deptTree().forEach(function (d) { var p = el('option', '', '\u00A0\u00A0'.repeat(d.depth) + d.name); p.value = d.id; sel.appendChild(p); });
-  sel.value = cur;
+function prFilterDept(rows) {
+  var f = prDeptSet($('pr-dept').value);
+  if (!f) return rows;
+  return rows.filter(function (x) { return Object.keys(prSeatMap[x.student_no] || {}).some(function (d) { return f[d]; }); });
 }
+async function prFetchRows(lim, useCache) { return prFilterDept(await prFetchAll(lim, useCache)); }
 function fillPrDepts() {
   var sel = $('pr-dept'), cur = sel.value; sel.innerHTML = '';
   var o = el('option', '', 'كل الأقسام'); o.value = ''; sel.appendChild(o);
   deptTree().forEach(function (d) { var p = el('option', '', '  '.repeat(d.depth) + d.name); p.value = d.id; sel.appendChild(p); });
   sel.value = cur;
 }
-async function loadPunchReport() {
+var prSumCache = null;
+async function loadPunchReport(useCache) {
+  useCache = (useCache === true);
   if ($('pd-dept').options.length <= 1) fillSelDepts('pd-dept');
   msg('pr-msg', 'جارٍ التحميل…');
   var a = prArgs(300);
   try {
     if ($('pr-dept').options.length <= 1) fillPrDepts();
-    var sm = await sb.rpc('punch_report_summary', { p_from: a.p_from, p_to: a.p_to });
+    var skey = JSON.stringify([a.p_from, a.p_to]), smP;
+    if (useCache && prSumCache && prSumCache.key === skey) smP = Promise.resolve(prSumCache.res);
+    else smP = sb.rpc('punch_report_summary', { p_from: a.p_from, p_to: a.p_to });
+    var rawP = prFetchAll(20000, useCache);
+    var sm = await smP;
     if (sm.error) throw sm.error;
-    var all = await prFetchRows(20000);
+    prSumCache = { key: skey, res: sm };
+    var raw = await rawP;
     msg('pr-msg', '');
-    var d = sm.data, st = d.status || {}, rows = all, filt = !!$('pr-dept').value;
+    var d = sm.data, st = d.status || {}, rows = prFilterDept(raw), filt = !!$('pr-dept').value;
     var matched = filt ? rows.filter(function (x) { return x.status === 'matched'; }).length : (st.matched || 0);
     var total = filt ? rows.length : d.total;
     var stu = {}; rows.forEach(function (x) { stu[x.student_no] = 1; });
@@ -1999,7 +2013,7 @@ async function loadPunchReport() {
     $('pr-range').textContent = d.total ? 'من ' + fmtCairo(new Date(d.first).getTime()) + ' إلى ' + fmtCairo(new Date(d.last).getTime()) + ' — ' +
       Object.keys(st).map(function (k) { return (PR_ST[k] || k) + ': ' + st[k]; }).join(' · ') : 'لا توجد بصمات في هذه الفترة.';
     // حسب القسم (على كل البصمات بدون فلتر القسم)
-    var base = filt ? await (async function () { var keep = $('pr-dept').value; $('pr-dept').value = ''; try { return await prFetchRows(20000); } finally { $('pr-dept').value = keep; } })() : all;
+    var base = raw;
     var g = {};
     base.forEach(function (x) {
       var ids = Object.keys(prSeatMap[x.student_no] || {}); if (!ids.length) ids = ['_none'];
@@ -2013,7 +2027,7 @@ async function loadPunchReport() {
       var nm = id === '_none' ? 'غير مسجَّل في كشف أي قسم' : deptPath(id);
       [nm, Object.keys(o.s).length, o.p, o.m, o.p ? Math.round(o.m * 100 / o.p) + '%' : '—'].forEach(function (v) { tr.appendChild(el('td', '', String(v))); });
       if (id === $('pr-dept').value) tr.className = 'on';
-      if (id !== '_none') tr.onclick = function () { $('pr-dept').value = id; loadPunchReport(); };
+      if (id !== '_none') tr.onclick = function () { $('pr-dept').value = id; loadPunchReport(true); };
       db.appendChild(tr);
     });
     var tb = $('pr-days'); tb.innerHTML = '';
@@ -2029,7 +2043,7 @@ async function loadPunchReport() {
       rb.appendChild(tr);
     });
     $('pr-count').textContent = rows.length > 300 ? 'أحدث 300 بصمة من ' + rows.length + ' (حمّل Excel للكل).' : rows.length + ' بصمة.';
-  } catch (e) { msg('pr-msg', prErr(e), 'bad'); $('pr-box').hidden = true; }
+  } catch (e) { msg('pr-msg', prErr(e), 'bad'); $('pr-box').hidden = true; applyPRS(); }
 }
 $('pg-go').onclick = async function () {
   var sid = $('pg-subject').value;
@@ -2044,7 +2058,7 @@ $('pg-go').onclick = async function () {
     ((d.skipped_no_schedule || []).length ? ' — تم تخطي (بلا موعد في جدولي): ' + d.skipped_no_schedule.join('، ') : ''), (d.skipped_no_schedule || []).length ? 'bad' : 'ok');
   loadPunchReport();
 };
-$('pr-go').onclick = loadPunchReport;
+$('pr-go').onclick = function () { loadPunchReport(); };
 async function deptSeats(deptId) {
   var set = prDeptSet(deptId), sids = subjects.filter(function (x) { return set[x.department_id]; }).map(function (x) { return x.id; });
   var seen = {}, out = [];
@@ -2080,7 +2094,7 @@ $('pd-go').onclick = async function () {
   prSeatMap = {};
   msg('pd-msg', 'تم حذف ' + (d.punches_deleted || 0) + ' بصمة' + (att ? ' و ' + (d.attendance_deleted || 0) + ' سجل حضور ناتج عنها' : '') + ' (' + who + '). يمكنك الآن رفع الملف الجديد.', 'ok');
 };
-$('pr-dept').onchange = loadPunchReport;
+$('pr-dept').onchange = function () { loadPunchReport(true); };
 $('pr-student').addEventListener('keydown', function (e) { if (e.key === 'Enter') loadPunchReport(); });
 $('pr-reproc').onclick = async function () {
   if (!window.confirm('إعادة مطابقة كل البصمات غير المتطابقة مع الجلسات الحالية؟')) return;
@@ -2093,7 +2107,7 @@ $('pr-reproc').onclick = async function () {
 $('pr-xlsx').onclick = async function () {
   msg('pr-msg', 'جارٍ تجهيز الملف…');
   var rr;
-  try { rr = await prFetchRows(20000); } catch (e) { msg('pr-msg', prErr(e), 'bad'); return; }
+  try { rr = await prFetchRows(20000, true); } catch (e) { msg('pr-msg', prErr(e), 'bad'); return; }
   var rows = rr.map(function (x) { return [fmtCairo(new Date(x.punched_at).getTime()), x.student_no, x.name || '', prDeptNames(x.student_no), x.device_no, PR_ST[x.status] || x.status, x.subject || '']; });
   var f = [];
   if ($('pr-from').value || $('pr-to').value) f.push('من ' + ($('pr-from').value || 'البداية') + ' إلى ' + ($('pr-to').value || 'اليوم'));
