@@ -203,6 +203,16 @@ catch(e){document.documentElement.dataset.theme='azhar';}
   .hero-sub { opacity:.85; margin:0 0 18px; }
   .sf-bar { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; }
   .sf-bar .row { margin-bottom: 6px; }
+  .pr-filters { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:12px; }
+  .pr-filters > div { min-width:0; }
+  .pr-filters .pf-wide { grid-column:1 / -1; }
+  .pr-actions { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px; }
+  .pr-actions button { flex:1 1 150px; }
+  #pun-tabs .opt, #hp-tabs .opt { min-height:0; flex-direction:row; justify-content:center; gap:8px; padding:11px 10px; }
+  #pr-box .scroll { margin-bottom:18px; }
+  #pr-box h3 { margin:20px 0 8px; }
+  @media (max-width: 900px) { .pr-filters { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  @media (max-width: 480px) { .pr-filters { grid-template-columns:1fr; } #pun-tabs .opt span, #hp-tabs .opt span { font-size:.85rem; } }
   .cb-wrap { position:relative; }
   .cb-wrap input { width:100%; }
   .cb-list { position:absolute; inset-inline:0; top:calc(100% + 4px); z-index:60; max-height:260px; overflow:auto; background:var(--card); color:var(--ink); border:1px solid var(--line); border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.25); padding:4px; }
@@ -719,9 +729,10 @@ catch(e){document.documentElement.dataset.theme='azhar';}
     </div>
   </section>
   <section id="tab-punches" hidden>
-    <div class="opts" id="pun-tabs" style="grid-template-columns:repeat(3,1fr);margin-top:0">
+    <div class="opts" id="pun-tabs" style="grid-template-columns:repeat(4,1fr);margin-top:0">
       <button type="button" class="opt on" data-pane="pn-report" title="تقرير البصمات"><i class="ico" data-ic="clock"></i><span>التقرير</span></button>
       <button type="button" class="opt" data-pane="pn-apply" title="تطبيق البصمات على مواد المجموعة"><i class="ico" data-ic="users"></i><span>تطبيق على المواد</span></button>
+      <button type="button" class="opt" id="pun-tab-del" data-pane="pn-del" title="حذف البصمات" hidden><i class="ico" data-ic="trash"></i><span>حذف البصمات</span></button>
       <button type="button" class="opt" id="pun-tab-set" data-pane="mp-box" title="إعدادات مسؤولي الأقسام" hidden><i class="ico" data-ic="shield-check"></i><span>صلاحية المسؤولين</span></button>
     </div>
     <div class="card" id="mp-box" hidden data-pane-card="1">
@@ -743,47 +754,52 @@ catch(e){document.documentElement.dataset.theme='azhar';}
     <div class="card" id="pn-report">
       <h2 data-ic="clock">تقرير بصمات الأجهزة</h2>
       <p class="hint" style="margin-top:0">كل البصمات المستوردة من أجهزة القاعات وحالة مطابقتها مع الجلسات. التواريخ بتوقيت القاهرة.</p>
-      <div class="row">
+      <div class="pr-filters">
         <div><label for="pr-from">من تاريخ</label><input id="pr-from" type="date"></div>
         <div><label for="pr-to">إلى تاريخ</label><input id="pr-to" type="date"></div>
-      </div>
-      <div class="row">
         <div><label for="pr-status">الحالة</label><select id="pr-status">
           <option value="">كل الحالات</option><option value="matched">تم تسجيل الحضور</option><option value="no_session">بدون جلسة</option>
           <option value="no_device">جهاز/قاعة غير مفعّل</option><option value="not_in_roster">ليس في الكشف</option><option value="pending">لم تُطابق بعد</option><option value="error">خطأ</option></select></div>
         <div><label for="pr-dept">القسم</label><select id="pr-dept"><option value="">كل الأقسام</option></select></div>
-        <div><label for="pr-student">الرقم الأكاديمي (اختياري)</label><input id="pr-student" inputmode="numeric" autocomplete="off" placeholder="كل الطلاب"></div>
+        <div class="pf-wide"><label for="pr-student">الرقم الأكاديمي (اختياري)</label><input id="pr-student" inputmode="numeric" autocomplete="off" placeholder="كل الطلاب"></div>
       </div>
-      <div class="opts" style="grid-template-columns:repeat(3,1fr)">
-        <button type="button" class="opt" id="pr-go" title="عرض التقرير"><i class="ico" data-ic="refresh"></i><span>عرض</span></button>
-        <button type="button" class="opt" id="pr-reproc" title="إعادة مطابقة البصمات غير المتطابقة (بعد فتح جلسات أو ربط الجهاز بقاعة)"><i class="ico" data-ic="activity"></i><span>إعادة المطابقة</span></button>
-        <button type="button" class="opt" id="pr-xlsx" title="تحميل البصمات بحسب الفلاتر إلى Excel"><i class="ico" data-ic="download"></i><span>تحميل Excel</span></button>
+      <div class="pr-actions">
+        <button type="button" class="primary" id="pr-go" data-ic="refresh" title="عرض التقرير">عرض</button>
+        <button type="button" id="pr-reproc" data-ic="activity" title="إعادة مطابقة البصمات غير المتطابقة (بعد فتح جلسات أو ربط الجهاز بقاعة)">إعادة المطابقة</button>
+        <button type="button" id="pr-xlsx" data-ic="download" title="تحميل البصمات بحسب الفلاتر إلى Excel">تحميل Excel</button>
       </div>
       <div id="pr-msg" class="msg" hidden></div>
-      <details id="pr-del" class="imp-link" hidden>
-        <summary data-ic="trash" style="cursor:pointer;font-weight:800">حذف البصمات (للمدير فقط)</summary>
-        <p class="hint">يحذف البصمات المستوردة بحسب الفترة والجهاز. اترك التواريخ فارغة لحذف <b>كل</b> البصمات. حذف الحضور الناتج عن البصمات لا يمس حضور QR أو الرابط.</p>
-        <div class="hall-form">
-          <div><label for="pd-from">من تاريخ</label><input id="pd-from" type="date"></div>
-          <div><label for="pd-to">إلى تاريخ</label><input id="pd-to" type="date"></div>
-          <div><label for="pd-dev">رقم الجهاز (اختياري)</label><input id="pd-dev" type="number" min="0" inputmode="numeric" placeholder="كل الأجهزة"></div>
-        </div>
-        <label class="opt" style="flex-direction:row;justify-content:flex-start;gap:12px;min-height:0;padding:10px 14px;text-align:start"><input id="pd-att" type="checkbox" checked><span>حذف سجلات الحضور المتولّدة من البصمات أيضًا</span></label>
-        <p><button id="pd-go" class="danger" type="button" data-ic="trash">حذف البصمات</button></p>
-        <div id="pd-msg" class="msg" hidden></div>
-      </details>
-      <div id="pr-box" hidden>
-        <div class="stats" id="pr-stats"></div>
-        <p class="hint" id="pr-range" style="margin:0 0 8px"></p>
-        <h3 data-ic="sitemap">حسب القسم</h3>
-        <p class="hint" style="margin:0 0 6px">اضغط على أي قسم لعرض بصماته فقط.</p>
+    </div>
+    <div id="pr-box" hidden>
+      <div class="stats" id="pr-stats"></div>
+      <p class="hint" id="pr-range" style="margin:0 0 12px"></p>
+      <div class="card">
+        <h2 data-ic="sitemap">حسب القسم</h2>
+        <p class="hint" style="margin-top:0">اضغط على أي قسم لعرض بصماته فقط.</p>
         <div class="scroll"><table><thead><tr><th>القسم</th><th>الطلاب</th><th>البصمات</th><th>تم تسجيل حضورهم</th><th>النسبة</th></tr></thead><tbody id="pr-depts"></tbody></table></div>
-        <h3 data-ic="calendar">حسب اليوم</h3>
+      </div>
+      <div class="card">
+        <h2 data-ic="calendar">حسب اليوم</h2>
         <div class="scroll"><table><thead><tr><th>اليوم</th><th>البصمات</th><th>الطلاب</th><th>تم تسجيل حضورهم</th></tr></thead><tbody id="pr-days"></tbody></table></div>
-        <h3 data-ic="list">البصمات</h3>
-        <p class="hint" id="pr-count" style="margin:0 0 6px"></p>
+      </div>
+      <div class="card">
+        <h2 data-ic="list">البصمات</h2>
+        <p class="hint" id="pr-count" style="margin-top:0"></p>
         <div class="scroll"><table><thead><tr><th>الوقت</th><th>الرقم الأكاديمي</th><th>الاسم</th><th>القسم</th><th>الجهاز</th><th>الحالة</th><th>المادة</th></tr></thead><tbody id="pr-rows"></tbody></table></div>
       </div>
+    </div>
+    <div class="card" id="pn-del" hidden>
+      <h2 data-ic="trash">حذف البصمات</h2>
+      <p class="hint" style="margin-top:0">يحذف البصمات المستوردة <b>حسب القسم</b> وبفترة أو جهاز اختياريين. لو تركت كل الحقول فارغة تُحذف <b>كل</b> البصمات. حذف الحضور الناتج عن البصمات لا يمس حضور QR أو الرابط.</p>
+      <div class="pr-filters">
+        <div class="pf-wide"><label for="pd-dept">القسم (اختياري — يشمل الأقسام الفرعية)</label><select id="pd-dept"><option value="">كل الأقسام</option></select></div>
+        <div><label for="pd-from">من تاريخ</label><input id="pd-from" type="date"></div>
+        <div><label for="pd-to">إلى تاريخ</label><input id="pd-to" type="date"></div>
+        <div class="pf-wide"><label for="pd-dev">رقم الجهاز (اختياري)</label><input id="pd-dev" type="number" min="0" inputmode="numeric" placeholder="كل الأجهزة"></div>
+      </div>
+      <label class="opt" style="flex-direction:row;justify-content:flex-start;gap:12px;min-height:0;padding:12px 14px;text-align:start;margin-bottom:12px"><input id="pd-att" type="checkbox" checked><span>حذف سجلات الحضور المتولّدة من هذه البصمات أيضًا</span></label>
+      <div class="pr-actions"><button id="pd-go" class="danger" type="button" data-ic="trash">حذف البصمات</button></div>
+      <div id="pd-msg" class="msg" hidden></div>
     </div>
   </section>
   <section id="tab-lists" hidden>
@@ -1755,11 +1771,12 @@ async function loadAppSettings() {
   if (r.error && admin) msg('sub-flash', /app_settings/.test(r.error.message || '') ? 'شغّل ملف lecturers_add_subjects.sql في Supabase لتفعيل هذا الخيار.' : errText(r.error), 'bad');
   var m = await sb.from('app_settings').select('managers_punch_report').maybeSingle();
   mgrPunch = !!(m.data && m.data.managers_punch_report);
-  $('pun-tab-set').hidden = !admin; $('pun-tabs').style.gridTemplateColumns = 'repeat(' + (admin ? 3 : 2) + ',1fr)'; showPunPane('pn-report'); $('pr-reproc').hidden = !admin; $('pr-reproc').parentNode.style.gridTemplateColumns = 'repeat(' + (admin ? 3 : 2) + ',1fr)'; $('mp-on').checked = mgrPunch; $('mp-opt').classList.toggle('on', mgrPunch);
+  $('pun-tab-set').hidden = !admin; $('pun-tab-del').hidden = !admin; $('pun-tabs').style.gridTemplateColumns = 'repeat(' + (admin ? 4 : 2) + ',1fr)'; showPunPane('pn-report'); $('pr-reproc').hidden = !admin; $('pr-reproc').parentNode.style.gridTemplateColumns = 'repeat(' + (admin ? 3 : 2) + ',1fr)'; $('mp-on').checked = mgrPunch; $('mp-opt').classList.toggle('on', mgrPunch);
   if (me && me.role === 'manager' && mgrPunch) { buildNav(); go(curTab, curSub[curTab], true); }
 }
 function showPunPane(id) {
-  ['pn-report', 'pn-apply', 'mp-box'].forEach(function (x) { $(x).hidden = (x !== id); });
+  ['pn-report', 'pn-apply', 'mp-box', 'pn-del'].forEach(function (x) { $(x).hidden = (x !== id); });
+  $('pr-box').style.display = (id === 'pn-report') ? '' : 'none';
   [].forEach.call(document.querySelectorAll('#pun-tabs .opt'), function (b) { b.classList.toggle('on', b.dataset.pane === id); });
 }
 [].forEach.call(document.querySelectorAll('#pun-tabs .opt'), function (b) { b.onclick = function () { showPunPane(b.dataset.pane); }; });
@@ -1930,6 +1947,12 @@ async function prFetchRows(lim) {
   if (f) rows = rows.filter(function (x) { return Object.keys(prSeatMap[x.student_no] || {}).some(function (d) { return f[d]; }); });
   return rows;
 }
+function fillSelDepts(id) {
+  var sel = $(id), cur = sel.value; sel.innerHTML = '';
+  var o = el('option', '', 'كل الأقسام'); o.value = ''; sel.appendChild(o);
+  deptTree().forEach(function (d) { var p = el('option', '', '\u00A0\u00A0'.repeat(d.depth) + d.name); p.value = d.id; sel.appendChild(p); });
+  sel.value = cur;
+}
 function fillPrDepts() {
   var sel = $('pr-dept'), cur = sel.value; sel.innerHTML = '';
   var o = el('option', '', 'كل الأقسام'); o.value = ''; sel.appendChild(o);
@@ -1937,7 +1960,7 @@ function fillPrDepts() {
   sel.value = cur;
 }
 async function loadPunchReport() {
-  $('pr-del').hidden = !(me && me.role === 'admin');
+  if ($('pd-dept').options.length <= 1) fillSelDepts('pd-dept');
   msg('pr-msg', 'جارٍ التحميل…');
   var a = prArgs(300);
   try {
@@ -2005,19 +2028,40 @@ $('pg-go').onclick = async function () {
   loadPunchReport();
 };
 $('pr-go').onclick = loadPunchReport;
+async function deptSeats(deptId) {
+  var set = prDeptSet(deptId), sids = subjects.filter(function (x) { return set[x.department_id]; }).map(function (x) { return x.id; });
+  var seen = {}, out = [];
+  for (var i = 0; i < sids.length; i += 15) {
+    var chunk = sids.slice(i, i + 15), from = 0;
+    for (;;) {
+      var r = await sb.from('subject_students').select('seat').in('subject_id', chunk).range(from, from + 999);
+      if (r.error) throw r.error;
+      (r.data || []).forEach(function (x) { if (!seen[x.seat]) { seen[x.seat] = 1; out.push(x.seat); } });
+      if ((r.data || []).length < 1000) break; from += 1000;
+    }
+  }
+  return out;
+}
 $('pd-go').onclick = async function () {
-  var f = $('pd-from').value || null, t = $('pd-to').value || null, dv = $('pd-dev').value.trim(), att = $('pd-att').checked;
+  var f = $('pd-from').value || null, t = $('pd-to').value || null, dv = $('pd-dev').value.trim(), att = $('pd-att').checked, dp = $('pd-dept').value;
+  var b = $('pd-go'), seats = null;
+  if (dp) {
+    b.disabled = true; msg('pd-msg', 'جارٍ تحديد طلاب القسم…');
+    try { seats = await deptSeats(dp); } catch (e) { b.disabled = false; msg('pd-msg', errText(e), 'bad'); return; }
+    b.disabled = false; msg('pd-msg', '');
+    if (!seats.length) { msg('pd-msg', 'لا يوجد طلاب في كشوف مواد هذا القسم.', 'bad'); return; }
+  }
   var scope = (f || t) ? 'من ' + (f || 'البداية') + ' إلى ' + (t || 'النهاية') : 'كل الفترات';
-  if (!window.confirm('سيتم حذف البصمات (' + scope + (dv ? ' — الجهاز ' + dv : ' — كل الأجهزة') + ')' + (att ? ' مع الحضور الناتج عنها' : '') + '.\nلا يمكن التراجع. متابعة؟')) return;
+  var who = dp ? 'قسم «' + deptPath(dp) + '» (' + seats.length + ' طالب)' : 'كل الأقسام';
+  if (!window.confirm('سيتم حذف البصمات: ' + who + ' — ' + scope + (dv ? ' — الجهاز ' + dv : ' — كل الأجهزة') + (att ? '\nمع الحضور الناتج عنها' : '') + '.\nلا يمكن التراجع. متابعة؟')) return;
   if (window.prompt('للتأكيد النهائي اكتب كلمة: حذف') !== 'حذف') { msg('pd-msg', 'تم الإلغاء.'); return; }
-  var b = $('pd-go'); b.disabled = true; msg('pd-msg', 'جارٍ الحذف…');
-  var r = await sb.rpc('admin_delete_punches', { p_from: f, p_to: t, p_device: dv === '' ? null : parseInt(dv, 10), p_delete_attendance: att });
+  b.disabled = true; msg('pd-msg', 'جارٍ الحذف…');
+  var r = await sb.rpc('admin_delete_punches', { p_from: f, p_to: t, p_device: dv === '' ? null : parseInt(dv, 10), p_delete_attendance: att, p_students: seats });
   b.disabled = false;
-  if (r.error) { msg('pd-msg', /admin_delete_punches|PGRST202|42883/i.test((r.error.message || '') + (r.error.code || '')) ? 'شغّل ملف delete_punches.sql في Supabase أولًا.' : /not allowed/i.test(r.error.message || '') ? 'الحذف للمدير فقط.' : errText(r.error), 'bad'); return; }
+  if (r.error) { msg('pd-msg', /admin_delete_punches|PGRST202|42883/i.test((r.error.message || '') + (r.error.code || '')) ? 'شغّل ملف delete_punches.sql (النسخة الجديدة) في Supabase أولًا.' : /not allowed/i.test(r.error.message || '') ? 'الحذف للمدير فقط.' : errText(r.error), 'bad'); return; }
   var d = r.data || {};
   prSeatMap = {};
-  msg('pd-msg', 'تم حذف ' + (d.punches_deleted || 0) + ' بصمة' + (att ? ' و ' + (d.attendance_deleted || 0) + ' سجل حضور ناتج عنها' : '') + '. يمكنك الآن رفع الملف الجديد.', 'ok');
-  loadPunchReport();
+  msg('pd-msg', 'تم حذف ' + (d.punches_deleted || 0) + ' بصمة' + (att ? ' و ' + (d.attendance_deleted || 0) + ' سجل حضور ناتج عنها' : '') + ' (' + who + '). يمكنك الآن رفع الملف الجديد.', 'ok');
 };
 $('pr-dept').onchange = loadPunchReport;
 $('pr-student').addEventListener('keydown', function (e) { if (e.key === 'Enter') loadPunchReport(); });
@@ -4336,7 +4380,7 @@ init();
 
 /* ============ مربعات اختيار قابلة للكتابة والبحث ============ */
 (function () {
-  var IDS = ['d-risk-subj','f-dept','f-level','f-term','f-subject','f-lecturer','sf-dept','sf-level','sf-term','sf-lect','s-subject','s-hall','ind-subject','u-subject','r-subject','sc-subject','sc-hall','pg-subject','pr-dept','as-dept','as-level','as-term','as-course','as-lect','as-fdept','as-flect','c-dept','a-dparent','a-udept','dv-hall','imp-device','imp-subject'];
+  var IDS = ['d-risk-subj','f-dept','f-level','f-term','f-subject','f-lecturer','sf-dept','sf-level','sf-term','sf-lect','s-subject','s-hall','ind-subject','u-subject','r-subject','sc-subject','sc-hall','pg-subject','pr-dept','pd-dept','as-dept','as-level','as-term','as-course','as-lect','as-fdept','as-flect','c-dept','a-dparent','a-udept','dv-hall','imp-device','imp-subject'];
   function norm(t) { return String(t || '').replace(/[ً-ْـ]/g, '').replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/[٠-٩]/g, function (d) { return d.charCodeAt(0) - 0x0660; }).replace(/ /g, ' ').trim().toLowerCase(); }
   var vd = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
   function enhance(sel) {
@@ -4375,11 +4419,15 @@ init();
       else if (e.key === 'Escape') { close(); sync(); }
     });
     inp.addEventListener('blur', function () { setTimeout(function () { close(); sync(); }, 120); });
+    var sid = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'selectedIndex');
+    Object.defineProperty(sel, 'selectedIndex', { get: function () { return sid.get.call(sel); }, set: function (v) { sid.set.call(sel, v); sync(); }, configurable: true });
     Object.defineProperty(sel, 'value', { get: function () { return vd.get.call(sel); }, set: function (v) { vd.set.call(sel, v); sync(); }, configurable: true });
     new MutationObserver(sync).observe(sel, { childList: true, attributes: true, attributeFilter: ['hidden', 'disabled'] });
     sync();
   }
-  IDS.forEach(function (id) { enhance(document.getElementById(id)); });
+  function scan(root) { [].forEach.call((root.querySelectorAll ? root.querySelectorAll('select') : []), enhance); if (root.tagName === 'SELECT') enhance(root); }
+  scan(document);
+  new MutationObserver(function (ms) { ms.forEach(function (m) { [].forEach.call(m.addedNodes, function (n) { if (n.nodeType === 1) scan(n); }); }); }).observe(document.body, { childList: true, subtree: true });
 })();
 </script>
 </body>
