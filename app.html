@@ -624,7 +624,15 @@ catch(e){document.documentElement.dataset.theme='azhar';}
 
   <!-- القوائم والربط (للمدير) -->
   <section id="tab-schedule" hidden>
-    <div class="card">
+    <div class="opts" id="sch-tabs" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr));margin-top:0">
+      <button type="button" class="opt on" data-pane="sc-p-grid" title="الجدول الأسبوعي"><i class="ico" data-ic="grid"></i><span>الجدول</span></button>
+      <button type="button" class="opt" data-pane="sc-p-add" title="تسكين موعد محاضرة"><i class="ico" data-ic="edit"></i><span>تسكين موعد</span></button>
+      <button type="button" class="opt" data-pane="sc-p-conf" title="التعارضات الحالية"><i class="ico" data-ic="alert"></i><span>التعارضات<span id="sc-tabn"></span></span></button>
+      <button type="button" class="opt" data-pane="sc-p-list" title="كل المواعيد"><i class="ico" data-ic="list"></i><span>كل المواعيد</span></button>
+      <button type="button" class="opt" data-pane="sc-p-imp" title="استيراد جدول من Excel"><i class="ico" data-ic="upload"></i><span>استيراد Excel</span></button>
+      <button type="button" class="opt" data-pane="sc-p-pub" title="نشر الجدول للطلاب"><i class="ico" data-ic="link"></i><span>نشر للطلاب</span></button>
+    </div>
+    <div class="card" id="sc-p-add" hidden>
       <h2 data-ic="edit">تسكين موعد محاضرة</h2>
       <p class="hint" style="margin-top:0">اختر المادة والقاعة واليوم والوقت. يفحص النظام فورًا تعارض القاعة والمحاضر والفرقة وسعة القاعة قبل الحفظ. الموعد المحفوظ هنا هو نفسه الذي يُحسب عليه الحضور وتقرير البصمات.</p>
       <div id="sc-msg" class="msg" hidden></div>
@@ -643,11 +651,11 @@ catch(e){document.documentElement.dataset.theme='azhar';}
       <ul class="plain" id="sc-warn"></ul>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button id="sc-save" type="button" class="primary" data-ic="check" style="flex:1 1 180px">حفظ الموعد</button><button id="sc-cancel" type="button" data-ic="x" hidden style="flex:0 0 auto">إلغاء التعديل</button></div>
     </div>
-    <div class="card">
+    <div class="card" id="sc-p-conf" hidden>
       <h2 data-ic="alert">التعارضات الحالية <span id="sc-confn"></span></h2>
       <ul class="plain" id="sc-conf"></ul>
     </div>
-    <div class="card">
+    <div class="card" id="sc-p-grid" hidden>
       <h2 data-ic="grid">الجدول الأسبوعي</h2>
       <div class="row">
         <div><label for="sc-mode">عرض حسب</label><select id="sc-mode">
@@ -657,7 +665,7 @@ catch(e){document.documentElement.dataset.theme='azhar';}
       <p><button id="sc-xl-one" type="button" data-ic="download">تصدير هذا الجدول</button> <button id="sc-xl-all" type="button" data-ic="download">تصدير الكل (ورقة لكل اختيار)</button></p>
       <div class="scroll"><table id="sc-grid"></table></div>
     </div>
-    <div class="card">
+    <div class="card" id="sc-p-imp" hidden>
       <h2 data-ic="upload">استيراد جدول من Excel</h2>
       <p class="hint" style="margin-top:0">أعمدة الملف: المادة، الفرقة، الفصل، اليوم، وقت البدء، المدة (دقيقة)، القاعة. الفرقة والفصل والمدة والقاعة اختيارية، لكن اكتب الفرقة والفصل لو في أكثر من مادة بنفس الاسم. لو المادة لها موعد قائم يُحدَّث بدل ما يتكرر.</p>
       <div id="sx-msg" class="msg" hidden></div>
@@ -670,14 +678,14 @@ catch(e){document.documentElement.dataset.theme='azhar';}
         <p><button id="sx-go" type="button" class="primary" data-ic="check">اعتماد الاستيراد</button></p>
       </div>
     </div>
-    <div class="card">
+    <div class="card" id="sc-p-pub" hidden>
       <h2 data-ic="link">نشر الجدول للطلاب</h2>
       <p class="hint" style="margin-top:0">اختر في «الجدول الأسبوعي» عرض «الفرقة والقسم» وحدد الفرقة، ثم انشرها. الرابط للقراءة فقط بدون تسجيل دخول، ويعرض الجدول الحالي دائمًا فيتحدّث تلقائيًا مع أي تعديل. تقدر توقف الرابط في أي وقت.</p>
       <div id="sp-msg" class="msg" hidden></div>
       <p><button id="sp-pub" type="button" class="primary" data-ic="link">نشر جدول الفرقة المعروضة</button></p>
       <ul class="plain" id="sp-list"></ul>
     </div>
-    <div class="card">
+    <div class="card" id="sc-p-list" hidden>
       <h2 data-ic="list">كل المواعيد</h2>
       <div class="row"><div><label for="sc-q">بحث</label><input id="sc-q" placeholder="مادة، محاضر، قاعة…"></div></div>
       <p><button id="sc-xl-list" type="button" data-ic="download">تصدير القائمة</button></p>
@@ -2362,6 +2370,13 @@ $('a-user-add').onclick = async function () {
 };
 
 /* ============ الجدول الرئيسي: تسكين المواعيد وكشف التعارضات ============ */
+var SCH_PANES = ['sc-p-grid', 'sc-p-add', 'sc-p-conf', 'sc-p-list', 'sc-p-imp', 'sc-p-pub'];
+function showSchPane(id) {
+  SCH_PANES.forEach(function (x) { $(x).hidden = (x !== id); });
+  [].forEach.call(document.querySelectorAll('#sch-tabs .opt'), function (b) { b.classList.toggle('on', b.dataset.pane === id); });
+}
+[].forEach.call(document.querySelectorAll('#sch-tabs .opt'), function (b) { b.onclick = function () { showSchPane(b.dataset.pane); }; });
+showSchPane('sc-p-grid');
 var schSlots = [], schEditId = '', schConfl = [], schBad = {};
 var SCH_KIND = { hall: 'تعارض قاعة', lect: 'تعارض محاضر', grp: 'تعارض فرقة', cap: 'تجاوز سعة القاعة' };
 function schEnd(t) { return ttMin(t.start_time) + (t.lecture_minutes || 90); }
@@ -2427,6 +2442,7 @@ async function loadSchedule(keepMsg) {
 function renderSchConf() {
   var ul = $('sc-conf'); ul.innerHTML = '';
   $('sc-confn').textContent = schConfl.length ? '(' + schConfl.length + ')' : '';
+  $('sc-tabn').textContent = schConfl.length ? ' (' + schConfl.length + ')' : '';
   if (!schConfl.length) { ul.appendChild(el('li', '', schSlots.length ? 'لا توجد تعارضات في المواعيد المسجّلة.' : 'لا توجد مواعيد مسجّلة بعد.')); return; }
   schConfl.forEach(function (c) {
     var sa = schSub(c.a), sb2 = c.b ? schSub(c.b) : null;
@@ -2563,7 +2579,7 @@ function renderSchRows() {
       $('sc-subject').value = t.subject_id; $('sc-hall').value = t.hall_id || ''; $('sc-day').value = String(t.weekday);
       $('sc-time').value = String(t.start_time).slice(0, 5); $('sc-len').value = t.lecture_minutes || 90;
       $('sc-save').textContent = 'حفظ التعديل'; $('sc-cancel').hidden = false;
-      window.scrollTo(0, 0); schPreview();
+      showSchPane('sc-p-add'); window.scrollTo(0, 0); schPreview();
     };
     td.appendChild(e);
     if (me && me.role === 'admin') {
