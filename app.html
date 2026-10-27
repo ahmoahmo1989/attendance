@@ -1433,11 +1433,12 @@ async function loadPdfJs() {
   window.pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(new Blob([await w.text()], { type: 'text/javascript' }));
   window.pdfjsLib.__ready = true; return window.pdfjsLib;
 }
+// ملاحظة: خطوط «الطباعة إلى PDF» تُخرج بعض الملصقات برموز خاصة (ʮ=يا، ʭ=نا، Đ=لمج) فتُستبدل أدناه
 async function pdfToRows(buf) {
   var lib = await loadPdfJs(), doc = await lib.getDocument({ data: buf }).promise, lines = [], total = 0, ar = /[\u0600-\u06FF]/;
   for (var pn = 1; pn <= doc.numPages; pn++) {
-    var tc = await (await doc.getPage(pn)).getTextContent(), items = [];
-    tc.items.forEach(function (it) { if (String(it.str).trim() !== '') items.push({ t: String(it.str).trim().normalize('NFKC'), x: it.transform[4], w: it.width || 0, y: it.transform[5], h: it.height || Math.abs(it.transform[3]) || 10 }); });
+    var tc = await (await doc.getPage(pn)).getTextContent({ disableNormalization: true }), items = [];   // بدون تطبيع pdf.js: يقلب ترتيب حروف الملصقات (مح ← حم)
+    tc.items.forEach(function (it) { if (String(it.str).trim() !== '') items.push({ t: String(it.str).trim().normalize('NFKC').replace(/\u02AE/g, 'يا').replace(/\u02AD/g, 'نا').replace(/\u0110/g, 'لمج'),  x: it.transform[4], w: it.width || 0, y: it.transform[5], h: it.height || Math.abs(it.transform[3]) || 10 }); });
     total += items.length;
     items.sort(function (a, b) { return (b.y - a.y) || (a.x - b.x); });
     var pl = [];   // أسطر الصفحة: عناصر قريبة رأسيًا
@@ -1458,7 +1459,7 @@ async function pdfToRows(buf) {
       var ps = c.parts.slice().sort(function (a, b) { return rtl ? b.x - a.x : a.x - b.x; });
       var out = '';   // حروف متجاورة (بلا فجوة) تُلصق، وفجوة الكلمة تصبح مسافة
       ps.forEach(function (p, i) {
-        if (i) { var q = ps[i - 1], gap = rtl ? (q.x - (p.x + p.w)) : (p.x - (q.x + q.w)); out += gap > 0.2 * (p.h || 10) ? ' ' : ''; }
+        if (i) { var q = ps[i - 1], gap = rtl ? (q.x - (p.x + p.w)) : (p.x - (q.x + q.w)); out += gap > 0.08 * (p.h || 10) ? ' ' : ''; }
         out += p.t;
       });
       return { t: out, x: c.x };
