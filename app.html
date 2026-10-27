@@ -670,13 +670,13 @@ catch(e){document.documentElement.dataset.theme='azhar';}
     </div>
     <div class="card" id="sc-p-imp" hidden>
       <h2 data-ic="upload">استيراد جدول من Excel</h2>
-      <p class="hint" style="margin-top:0">أعمدة الملف: القسم، التخصص، الفرقة، الفصل الدراسي، المادة، اليوم، الموعد (مثل 8 : 10 يعني من 8 إلى 10)، والقاعة اختيارية. القسم أو التخصص أو الفرقة أو المادة الناقصة تُنشأ عند الاستيراد (للمدير فقط). لو المادة لها موعد قائم يُحدَّث بدل ما يتكرر. الخلية الفارغة في القسم أو الفرقة أو الفصل ترث ما فوقها.</p>
+      <p class="hint" style="margin-top:0">أعمدة الملف: القسم، التخصص، الفرقة، الفصل الدراسي، المادة، اليوم، الموعد (مثل 8 : 10 يعني من 8 إلى 10)، والمحاضر والقاعة اختياريان (المحاضر باسمه أو بريده؛ يُسنَد للمادة الجديدة أو التي بلا محاضر فقط). القسم أو التخصص أو الفرقة أو المادة الناقصة تُنشأ عند الاستيراد (للمدير فقط). لو المادة لها موعد قائم يُحدَّث بدل ما يتكرر. الخلية الفارغة في القسم أو الفرقة أو الفصل ترث ما فوقها.</p>
       <div id="sx-msg" class="msg" hidden></div>
       <p><button id="sx-tpl" type="button" data-ic="download">تحميل القالب</button></p>
       <input id="sx-file" type="file" accept=".xlsx,.xls,.csv">
       <div id="sx-prev" hidden>
         <p class="hint" id="sx-sum"></p>
-        <div class="scroll"><table><thead><tr><th>السطر</th><th>المادة</th><th>القسم / التخصص</th><th>الفرقة والفصل</th><th>اليوم</th><th>الموعد</th><th>القاعة</th><th>النتيجة</th></tr></thead><tbody id="sx-rows"></tbody></table></div>
+        <div class="scroll"><table><thead><tr><th>السطر</th><th>المادة</th><th>المحاضر</th><th>القسم / التخصص</th><th>الفرقة والفصل</th><th>اليوم</th><th>الموعد</th><th>القاعة</th><th>النتيجة</th></tr></thead><tbody id="sx-rows"></tbody></table></div>
         <label class="opt" style="flex-direction:row;justify-content:flex-start;gap:10px;min-height:0;padding:8px 12px;text-align:start"><input id="sx-conf" type="checkbox"> <span>استورد المواعيد المتعارضة أيضًا</span></label>
         <p><button id="sx-go" type="button" class="primary" data-ic="check">اعتماد الاستيراد</button></p>
       </div>
@@ -2181,7 +2181,7 @@ function addExportSheet(wb, o, logos, si) {
   function at(X) { var left = 0, idx = 0; while (idx < colRev.length - 1 && X > left + colRev[idx]) { left += colRev[idx]; idx++; }
     return { nativeCol: nCols - 1 - idx, nativeColOff: Math.max(0, left + colRev[idx] - X) * 9525, nativeRow: 0, nativeRowOff: 8 * 9525 }; }
   var xPos = 10;
-  ['faculty', 'azhar', 'unit'].forEach(function (key) {
+  ['faculty', 'unit', 'azhar'].forEach(function (key) {
     var buf = logos && logos[key]; if (!buf) return;
     var sz = pngSize(buf), w = Math.round(h * sz[0] / sz[1]);
     wb.__imgs = wb.__imgs || {}; var id = wb.__imgs[key]; if (id === undefined) id = wb.__imgs[key] = wb.addImage({ buffer: buf, extension: 'png' });
@@ -2682,7 +2682,7 @@ $('sc-xl-list').onclick = function () {
 
 
 /* ===== استيراد الجدول من Excel (قسم / تخصص / فرقة / فصل / مادة / يوم / موعد) ===== */
-var schImp = null, schPlan = null;
+var schImp = null, schPlan = null, schNewLects = {};
 function nrm(s) { return String(s == null ? '' : s).replace(/[ً-ْـ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/ؤ/g, 'و').replace(/ئ/g, 'ي').replace(/\s+/g, ' ').trim().toLowerCase(); }
 function schDayNum(v) {
   var x = nrm(v).replace(/^يوم /, '').replace(/^ال/, '');
@@ -2717,9 +2717,9 @@ function schParseSlot(raw) {
 var SCH_COLS = {
   dept: ['القسم', 'قسم'], spec: ['التخصص', 'تخصص', 'الشعبة', 'البرنامج'],
   level: ['الفرقة', 'الفرقه', 'المستوى', 'الفرقة الدراسية'], term: ['الفصل الدراسي', 'الفصل', 'الترم'],
-  subject: ['اسم المادة', 'المادة', 'مادة'], day: ['اليوم', 'يوم'],
+  subject: ['اسم المادة', 'المادة', 'مادة'], lect: ['المحاضر', 'المحاضر (اختياري)', 'اسم المحاضر', 'الدكتور', 'أستاذ المادة', 'بريد المحاضر'], day: ['اليوم', 'يوم'],
   slot: ['الموعد', 'موعد', 'الفترة', 'الوقت'], start: ['وقت البدء', 'البدء', 'من', 'بداية'],
-  len: ['المدة (دقيقة)', 'المدة', 'مدة المحاضرة'], hall: ['القاعة', 'القاعه', 'المدرج'] };
+  len: ['المدة (دقيقة)', 'المدة', 'مدة المحاضرة'], hall: ['القاعة', 'القاعة (اختياري)', 'القاعه', 'المدرج'] };
 function schParseSheet(rows) {
   var hi = -1, idx = {};
   for (var i = 0; i < Math.min(rows.length, 15) && hi < 0; i++) {
@@ -2731,7 +2731,7 @@ function schParseSheet(rows) {
   var out = [], last = {};
   rows.slice(hi + 1).forEach(function (r, n) {
     if (!r.some(function (c) { return String(c).trim() !== ''; })) return;
-    var it = { line: hi + n + 2, subject: g(r, 'subject'), day: g(r, 'day'), slot: g(r, 'slot'), start: g(r, 'start'), len: g(r, 'len'), hall: g(r, 'hall') };
+    var it = { line: hi + n + 2, subject: g(r, 'subject'), lecturer: g(r, 'lect'), day: g(r, 'day'), slot: g(r, 'slot'), start: g(r, 'start'), len: g(r, 'len'), hall: g(r, 'hall') };
     var newDept = !!g(r, 'dept');   // قسم جديد في الصف: لا يرث التخصص من الصف السابق
     ['dept', 'spec', 'level', 'term'].forEach(function (k) { it[k] = g(r, k); if (!it[k] && idx[k] !== undefined && !(k === 'spec' && newDept)) it[k] = last[k] || ''; last[k] = it[k]; });   // الخلايا المدمجة/الفارغة ترث ما فوقها
     out.push(it);
@@ -2756,6 +2756,29 @@ function schBuildImport(items) {
   var isAdm = !!(me && me.role === 'admin'), vn = 0;
   var plan = { depts: [], levels: [], subs: [] }, sd = departments.slice(), sl = levels.slice(), ss = subjects.filter(function (s) { return !s.archived; });
   var roots = departments.filter(function (d) { return !d.parent_id; }), root = roots.length === 1 ? roots[0].id : null;
+  var lecName = {}, lecMail = {}, auName = {}, auMail = {}, regMail = {};
+  profiles.forEach(function (p) { if (p.email) regMail[String(p.email).toLowerCase()] = p; });
+  profiles.filter(function (p) { return p.active !== false; }).forEach(function (p) { var k = nrm(p.full_name); (lecName[k] = lecName[k] || []).push(p); if (p.email) lecMail[String(p.email).toLowerCase()] = p; });
+  (typeof allowedUsers !== 'undefined' ? allowedUsers : []).forEach(function (a) { var m = String(a.email || '').toLowerCase(); if (regMail[m]) return; auMail[m] = a; var k = nrm(a.full_name); (auName[k] = auName[k] || []).push(a); });
+  var newLects = {};
+  var findLect = function (txt) {   // يُرجع {id,name,pending,isNew,note}
+    var t = String(txt || '').trim(); if (!t) return null;
+    if (t.indexOf('@') > 0) {
+      var m = t.toLowerCase(), p = lecMail[m];
+      if (p) return { id: p.id, name: p.full_name || m };
+      if (auMail[m]) return { pending: m, name: auMail[m].full_name || m };
+      if (isAdm) { newLects[m] = { email: m, full_name: m.split('@')[0] }; return { pending: m, name: m.split('@')[0], isNew: true }; }
+      return { note: 'المحاضر غير مسجَّل (إضافته للمدير)' };
+    }
+    var ls = lecName[nrm(t)] || [];
+    if (ls.length > 1) return { note: 'اسم المحاضر متكرر — استخدم بريده' };
+    if (ls.length) return { id: ls[0].id, name: ls[0].full_name || t };
+    var ps = auName[nrm(t)] || [];
+    if (ps.length > 1) return { note: 'اسم المحاضر متكرر — استخدم بريده' };
+    if (ps.length) return { pending: String(ps[0].email).toLowerCase(), name: ps[0].full_name || t };
+    return { note: 'المحاضر غير مسجَّل — تُترك المادة بدون محاضر' };
+  };
+  schNewLects = newLects;
   var shareCnt = {}, shareKeyOf = function (it) {
     var sp0 = it.slot ? schParseSlot(it.slot) : (it.start ? { start: schParseTime(it.start), len: 0 } : null), wd0 = schDayNum(it.day);
     if (!it.hall || !sp0 || !sp0.start || wd0 < 0 || !it.subject) return '';
@@ -2803,10 +2826,20 @@ function schBuildImport(items) {
             && (!nt || nrm(s.term).indexOf(nt) > -1);
         });
         if (cands.length > 1) r.err = 'أكثر من مادة بنفس الاسم — اكتب القسم والفرقة والفصل';
-        else if (cands.length === 1) subj = cands[0];
+        else if (cands.length === 1) {
+          subj = cands[0];
+          var lc2 = findLect(it.lecturer);
+          if (lc2 && lc2.note) r.lecNote = lc2.note;
+          else if (lc2) {
+            var has = subj.lecturer_id || subj.pending_email;
+            if (!has) { r.assignLec = lc2; subj = Object.assign({}, subj, { lecturer_id: lc2.id || null, lecturer_name: lc2.name }); if (lc2.isNew) r.news.push('محاضر'); }
+            else if ((lc2.id && lc2.id !== subj.lecturer_id) || (lc2.pending && lc2.pending !== subj.pending_email)) r.lecNote = 'المادة مسندة لمحاضر آخر (' + (subj.lecturer_name || subj.pending_email) + ') — لم تتغير';
+          }
+        }
         else if (!tdept || !lv) r.err = 'مادة غير موجودة (اكتب القسم والفرقة ليُنشأ ما ينقص)';
         else if (need('المادة')) {
-          subj = { id: 'v' + (++vn), name: it.subject, level: lv.name, level_id: lv.id, term: it.term ? (/فصل/.test(it.term) ? it.term : 'الفصل الدراسي ' + it.term) : null, department_id: tdept, lecturer_id: null, lecturer_name: '', virtual: true };
+          var lc = findLect(it.lecturer); if (lc && lc.note) r.lecNote = lc.note; else if (lc && lc.isNew) r.news.push('محاضر');
+          subj = { id: 'v' + (++vn), name: it.subject, level: lv.name, level_id: lv.id, term: it.term ? (/فصل/.test(it.term) ? it.term : 'الفصل الدراسي ' + it.term) : null, department_id: tdept, lecturer_id: lc && lc.id || null, lecturer_name: lc && !lc.note ? lc.name : '', pending_email: lc && lc.pending || null, virtual: true };
           ss.push(subj); plan.subs.push(subj); r.news.push('مادة');
         }
       }
@@ -2830,8 +2863,8 @@ function renderSchImport() {
   var ok = 0, cf = 0, bad = 0;
   schImp.forEach(function (r) {
     var tr = el('tr'), it = r.it;
-    [String(it.line), it.subject, [it.dept, it.spec].filter(Boolean).join(' / ') || '—', [it.level, it.term].filter(Boolean).join(' — ') || '—', it.day, r.range || it.slot || it.start, it.hall || '—'].forEach(function (v) { tr.appendChild(el('td', '', v)); });
-    var st = r.err ? r.err : (r.op === 'update' ? 'تحديث موعد قائم' : 'موعد جديد') + (r.shareKey ? ' (محاضرة مشتركة)' : '') + (r.news.length ? ' — سيُنشأ: ' + r.news.join('، ') : '') + (r.warn.length ? ' — تعارض: ' + r.warn.join('، ') : '');
+    [String(it.line), it.subject, it.lecturer || '—', [it.dept, it.spec].filter(Boolean).join(' / ') || '—', [it.level, it.term].filter(Boolean).join(' — ') || '—', it.day, r.range || it.slot || it.start, it.hall || '—'].forEach(function (v) { tr.appendChild(el('td', '', v)); });
+    var st = r.err ? r.err : (r.op === 'update' ? 'تحديث موعد قائم' : 'موعد جديد') + (r.shareKey ? ' (محاضرة مشتركة)' : '') + (r.news.length ? ' — سيُنشأ: ' + r.news.join('، ') : '') + (r.assignLec ? ' — سيُسنَد: ' + (r.assignLec.name) : '') + (r.lecNote ? ' — ' + r.lecNote : '') + (r.warn.length ? ' — تعارض: ' + r.warn.join('، ') : '');
     var td = el('td', '', st); if (r.err) { td.style.color = '#b91c1c'; bad++; } else if (r.warn.length) { td.style.color = '#b45309'; cf++; ok++; } else ok++;
     tr.appendChild(td); tb.appendChild(tr);
   });
@@ -2856,19 +2889,20 @@ $('sx-file').onchange = function () {
   if (isCsv) rd.readAsText(f, 'UTF-8'); else rd.readAsArrayBuffer(f);
 };
 $('sx-tpl').onclick = function () {
-  var head = ['القسم', 'التخصص', 'الفرقة', 'الفصل الدراسي', 'المادة', 'اليوم', 'الموعد', 'القاعة (اختياري)'];
+  var head = ['القسم', 'التخصص', 'الفرقة', 'الفصل الدراسي', 'المادة', 'المحاضر (اختياري)', 'اليوم', 'الموعد', 'القاعة (اختياري)'];
   var help = [
     ['القسم', 'اسم القسم كما في النظام. لو غير موجود يُنشأ عند الاستيراد (للمدير).', 'المكتبات والمعلومات وتكنولوجيا التعليم'],
     ['التخصص', 'اختياري. يُنشأ كقسم فرعي تحت القسم لو غير موجود.', 'حاسب آلي'],
     ['الفرقة', 'رقم أو اسم الفرقة.', 'الرابعة'],
     ['الفصل الدراسي', 'الأول أو الثاني.', 'الأول'],
     ['المادة', 'اسم المادة. تُنشأ لو غير موجودة.', 'فلسفة التربية'],
+    ['المحاضر (اختياري)', 'اسم المحاضر كما في النظام أو بريده الإلكتروني. يُسنَد للمادة الجديدة أو التي بلا محاضر، ولا يغيّر محاضرًا مسنَدًا من قبل.', 'د. أحمد محمد'],
     ['اليوم', 'اسم اليوم (قائمة منسدلة).', 'الأحد'],
     ['الموعد', 'من : إلى بالساعات. 8 : 10 تعني من 8 إلى 10، و1 : 3 تعني من 1 ظهرًا إلى 3 عصرًا. أو وقت بدء واحد مثل 09:30 (مدته 90 دقيقة).', '8 : 10'],
     ['القاعة (اختياري)', 'اسم قاعة مسجّلة في النظام. المواد ذات الاسم والموعد والقاعة الواحدة تُعتبر محاضرة مشتركة.', 'مدرج 202'],
     ['ملاحظات', 'الخلية الفارغة في القسم أو الفرقة أو الفصل تأخذ قيمة الصف الذي فوقها. اترك الجدول في الورقة الأولى وأضف صفوفك أسفل رؤوس الأعمدة.', '']];
   exportStyled({ sheetName: 'الجدول', title: 'قالب استيراد الجدول الدراسي', fileName: 'قالب استيراد الجدول الدراسي', head: head, rows: [],
-    widths: [34, 18, 14, 16, 30, 13, 16, 20], headH: 34, validations: [{ col: 5, list: TT_ORDER.map(function (d) { return TT_DAYS[d]; }) }], msgId: 'sx-msg',
+    widths: [34, 18, 14, 16, 30, 24, 13, 16, 20], headH: 34, validations: [{ col: 6, list: TT_ORDER.map(function (d) { return TT_DAYS[d]; }) }], msgId: 'sx-msg',
     extra: [{ sheetName: 'التعليمات', title: 'طريقة تعبئة القالب', head: ['الحقل', 'ماذا تكتب', 'مثال'], rows: help, widths: [20, 80, 38], left: [1], headH: 30, wrap: true }] });
 };
 $('sx-go').onclick = async function () {
@@ -2897,12 +2931,20 @@ $('sx-go').onclick = async function () {
       var rl = await sb.from('levels').insert({ name: lv.name, sort: lv.sort }).select('id,name,sort').single();
       if (rl.error) throw rl.error; map[lv.id] = rl.data.id; levels.push(rl.data); made.l++;
     }
+    var nlk = Object.keys(schNewLects || {}).filter(function (m) { return subsToMake.some(function (q) { return q.pending_email === m; }) || list.some(function (q) { return q.assignLec && q.assignLec.pending === m; }); });
+    for (var q0 = 0; q0 < nlk.length; q0++) { var ra = await sb.from('allowed_users').upsert({ email: nlk[q0], full_name: schNewLects[nlk[q0]].full_name, role: 'lecturer', department_id: null }); if (ra.error) throw ra.error; }
     for (var k = 0; k < subsToMake.length; k++) {
       var s = subsToMake[k], dep = real(s.department_id);
       var cr = courses.filter(function (x) { return nk(x.name) === nk(s.name) && (!x.department_id || courseFits(x, dep)); })[0];
       if (!cr) { var rc = await sb.from('courses').insert({ name: s.name, code: '', department_id: null }).select('id,name,code,department_id').single(); if (rc.error) throw rc.error; courses.push(rc.data); cr = rc.data; }
-      var ri = await sb.from('subjects').insert({ course_id: cr.id, level_id: real(s.level_id), department_id: dep, term: s.term, lecturer_id: null, pending_email: null }).select('id').single();
+      var ri = await sb.from('subjects').insert({ course_id: cr.id, level_id: real(s.level_id), department_id: dep, term: s.term, lecturer_id: s.lecturer_id || null, pending_email: s.lecturer_id ? null : (s.pending_email || null) }).select('id').single();
       if (ri.error) throw ri.error; map[s.id] = ri.data.id; made.s++;
+    }
+    var doneAs = {}, lerr = 0;
+    for (var a0 = 0; a0 < list.length; a0++) {
+      var al = list[a0].assignLec, sj0 = list[a0].slot.subject_id; if (!al || doneAs[sj0]) continue; doneAs[sj0] = 1;
+      var ax = al.id ? await sb.rpc('move_subject', { p_subject: sj0, p_lecturer: al.id }) : await sb.from('subjects').update({ pending_email: al.pending }).eq('id', sj0);
+      if (ax.error) lerr++;
     }
     var errs = 0, ins = [], gmap = {}, uid = function () { return window.crypto && crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (ch) { var q = Math.random() * 16 | 0; return (ch === 'x' ? q : (q & 3 | 8)).toString(16); }); };
     for (var n = 0; n < list.length; n++) {
@@ -2912,7 +2954,7 @@ $('sx-go').onclick = async function () {
       else ins.push(row);
     }
     if (ins.length) { var x = await sb.from('timetable').insert(ins); if (x.error) { msg('sx-msg', /lecture_minutes/.test(x.error.message || '') ? 'شغّل ملف schedule.sql في Supabase أولًا.' : errText(x.error), 'bad'); return; } }
-    var txt = 'تم استيراد ' + (list.length - errs) + ' موعد' + (errs ? ' (فشل ' + errs + ')' : '') + (made.d || made.l || made.s ? ' — أُنشئ: ' + made.d + ' قسم/تخصص، ' + made.l + ' فرقة، ' + made.s + ' مادة (ربط المحاضر من «القوائم والربط»)' : '') + '.';
+    var txt = 'تم استيراد ' + (list.length - errs) + ' موعد' + (errs ? ' (فشل ' + errs + ')' : '') + (lerr ? ' — تعذّر إسناد محاضر لـ ' + lerr + ' مادة' : '') + (made.d || made.l || made.s ? ' — أُنشئ: ' + made.d + ' قسم/تخصص، ' + made.l + ' فرقة، ' + made.s + ' مادة (ربط المحاضر من «القوائم والربط»)' : '') + '.';
     schImp = null; $('sx-file').value = ''; renderSchImport(); fillDepts(); await loadSubjects(); await loadSchedule(true);
     msg('sx-msg', txt, errs ? 'bad' : 'ok');
   } catch (e) { msg('sx-msg', 'تعذّر الاستيراد: ' + errText(e), 'bad'); }
