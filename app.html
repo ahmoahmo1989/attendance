@@ -200,6 +200,14 @@ catch(e){document.documentElement.dataset.theme='azhar';}
   .fac { font-size:1.1rem; margin:0 0 14px; opacity:.92; }
   .hero-title { font-family:'Amiri','Cairo',serif; font-size:2.6rem; line-height:1.3; margin:0 0 8px; }
   .hero-sub { opacity:.85; margin:0 0 18px; }
+  .sf-bar { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; }
+  .sf-bar .row { margin-bottom: 6px; }
+  .sf-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .subject-item .si-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .subject-item .si-top h3 { margin: 0; }
+  .subject-item .si-top .cnt { margin-inline-start: auto; font-weight: 700; color: var(--brand, #0b6b4f); white-space: nowrap; }
+  .subject-item .si-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 0; }
+  .subject-item .si-chips .tag { margin: 0; font-size: .82rem; }
   .chips { list-style:none; padding:0; margin:0 0 20px; display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
   .chips li { display:inline-flex; align-items:center; padding:6px 13px; border-radius:99px; background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2); font-size:.88rem; }
   a.fb { display:inline-flex; align-items:center; padding:10px 18px; border-radius:99px; background:#1877f2; color:#fff; text-decoration:none; font-weight:700; box-shadow:0 4px 14px rgba(0,0,0,.25); }
@@ -378,9 +386,6 @@ catch(e){document.documentElement.dataset.theme='azhar';}
       <button type="button" class="opt on" data-pane="subjects-card" title="المواد الحالية"><i class="ico" data-ic="folder"></i><span>موادي</span></button>
       <button type="button" class="opt" id="sub-tab-add" data-pane="roster-card" title="إضافة مادة وكشف طلاب"><i class="ico" data-ic="plus"></i><span>إضافة مادة</span></button>
     </div>
-    <div class="opts" id="adm-sub-opts" style="grid-template-columns:1fr;margin-top:0" hidden>
-      <label class="opt" id="adm-lect-opt" style="flex-direction:row;justify-content:flex-start;gap:12px;min-height:0;padding:12px 14px;text-align:start" title="عند التفعيل يستطيع كل محاضر إضافة مواد لنفسه. أوقفه عند عدم الحاجة."><input id="s-lect-add" type="checkbox"><i class="ico" data-ic="user-plus"></i><span>السماح للمحاضرين بإضافة مواد</span></label>
-    </div>
     <div class="card" id="roster-card" hidden>
       <h2 id="roster-title" data-ic="file">إضافة مادة وكشف طلاب</h2>
       <div id="subject-fields">
@@ -411,8 +416,26 @@ catch(e){document.documentElement.dataset.theme='azhar';}
     </div>
     <div id="sub-flash" class="msg" hidden></div>
     <div class="card" id="subjects-card">
-      <h2 data-ic="folder">موادي</h2>
+      <h2 data-ic="folder" id="subjects-h">موادي</h2>
+      <div class="sf-bar" id="sf-bar" hidden>
+        <div class="row">
+          <div><label for="sf-q">بحث</label><input id="sf-q" placeholder="اسم المادة أو المحاضر" autocomplete="off"></div>
+          <div><label for="sf-arch">الحالة</label><select id="sf-arch"><option value="active">النشطة</option><option value="archived">المؤرشفة</option><option value="all">الكل</option></select></div>
+        </div>
+        <div class="row">
+          <div><label for="sf-dept">القسم</label><select id="sf-dept"></select></div>
+          <div><label for="sf-level">الفرقة</label><select id="sf-level"></select></div>
+        </div>
+        <div class="row">
+          <div><label for="sf-term">الفصل الدراسي</label><select id="sf-term"></select></div>
+          <div id="sf-lect-box"><label for="sf-lect">المحاضر</label><select id="sf-lect"></select></div>
+        </div>
+        <div class="sf-foot"><span class="hint" id="sf-count" style="margin:0"></span><button type="button" id="sf-reset" data-ic="refresh">إعادة ضبط</button></div>
+      </div>
       <div id="subjects-list"><p class="hint">جارٍ التحميل…</p></div>
+    <div class="opts" id="adm-sub-opts" style="grid-template-columns:1fr;margin-top:12px" hidden>
+      <label class="opt" id="adm-lect-opt" style="flex-direction:row;justify-content:flex-start;gap:12px;min-height:0;padding:12px 14px;text-align:start" title="عند التفعيل يستطيع كل محاضر إضافة مواد لنفسه. أوقفه عند عدم الحاجة."><input id="s-lect-add" type="checkbox"><i class="ico" data-ic="user-plus"></i><span>السماح للمحاضرين بإضافة مواد</span></label>
+    </div>
     </div>
   </section>
 
@@ -576,11 +599,16 @@ catch(e){document.documentElement.dataset.theme='azhar';}
 
   <!-- القوائم والربط (للمدير) -->
   <section id="tab-punches" hidden>
-    <div class="card" id="mp-box" hidden>
+    <div class="opts" id="pun-tabs" style="grid-template-columns:repeat(3,1fr);margin-top:0">
+      <button type="button" class="opt on" data-pane="pn-report" title="تقرير البصمات"><i class="ico" data-ic="clock"></i><span>التقرير</span></button>
+      <button type="button" class="opt" data-pane="pn-apply" title="تطبيق البصمات على مواد المجموعة"><i class="ico" data-ic="users"></i><span>تطبيق على المواد</span></button>
+      <button type="button" class="opt" id="pun-tab-set" data-pane="mp-box" title="إعدادات مسؤولي الأقسام" hidden><i class="ico" data-ic="shield-check"></i><span>صلاحية المسؤولين</span></button>
+    </div>
+    <div class="card" id="mp-box" hidden data-pane-card="1">
       <label class="opt" id="mp-opt" style="flex-direction:row;justify-content:flex-start;gap:12px;min-height:0;padding:12px 14px;text-align:start" title="عند التفعيل يرى مسؤولو الأقسام تقرير بصمات طلاب أقسامهم ويطبّقونها على مواد أقسامهم."><input id="mp-on" type="checkbox"><i class="ico" data-ic="shield-check"></i><span>السماح لمسؤولي الأقسام برؤية تقرير البصمات (لأقسامهم فقط)</span></label>
       <div id="mp-msg" class="msg" hidden></div>
     </div>
-    <div class="card">
+    <div class="card" id="pn-apply" hidden>
       <h2 data-ic="users">تطبيق البصمات على مواد المجموعة</h2>
       <p class="hint" style="margin-top:0">اختر أي مادة، وسيُسجَّل حضور الطلاب (بحسب بصماتهم المستوردة) في <b>كل مواد نفس القسم والفرقة والفصل</b> دفعة واحدة. يُحسب الحضور فقط في اليوم الموافق لموعد المادة في «جدولي»، وأكثر من بصمة في اليوم = حضور واحد. المادة التي بلا موعد في الجدول تُتخطى. آمن للتكرار.</p>
       <label for="pg-subject" data-ic="book">المادة (تحدد المجموعة)</label>
@@ -592,7 +620,7 @@ catch(e){document.documentElement.dataset.theme='azhar';}
       <button type="button" class="primary" data-ic="check" id="pg-go">تطبيق على مواد المجموعة</button>
       <div id="pg-msg" class="msg" hidden></div>
     </div>
-    <div class="card">
+    <div class="card" id="pn-report">
       <h2 data-ic="clock">تقرير بصمات الأجهزة</h2>
       <p class="hint" style="margin-top:0">كل البصمات المستوردة من أجهزة القاعات وحالة مطابقتها مع الجلسات. التواريخ بتوقيت القاهرة.</p>
       <div class="row">
@@ -922,6 +950,8 @@ function buildNav() {
   var nav = $('tabs'); nav.innerHTML = '';
   var isAdmin = me && me.role === 'admin';
   NAV.filter(function (n) { return n.id === 'subjects'; })[0].t = isAdmin ? 'المواد وكشوف الطلاب' : (me && me.role === 'manager' ? 'مواد الأقسام وكشوفها' : 'موادي وكشوفها');
+  var sl = isAdmin ? 'كل المواد' : (me && me.role === 'manager' ? 'مواد الأقسام' : 'موادي');
+  (function (h) { var n = h.lastChild; if (n && n.nodeType === 3) n.nodeValue = sl; else h.textContent = sl; })($('subjects-h')); var tbs = document.querySelector('#sub-tabs [data-pane="subjects-card"] span'); if (tbs) tbs.textContent = sl;
   navList(isAdmin).forEach(function (n) {
     var nested = n.id !== 'dash';   // بلا قائمة فرعية تحت «الرئيسية» (البلاطات في الصفحة تكفي)
     var b = navBtn('nav-btn', n.t, n.ic, { 'data-tab': n.id });
@@ -1130,20 +1160,49 @@ function toggleMove(s, card) {
   row.appendChild(sel); row.appendChild(ok); card.appendChild(row);
 }
 
-async function loadSubjects() {
-  var r = await sb.from('subjects')
-    .select('id,name,level,term,lecturer_id,pending_email,lecturer_name,archived,department_id,course_id,level_id,subject_students(count)')
-    .order('created_at', { ascending: false });
-  if (r.error) { $('subjects-list').textContent = errText(r.error); return; }
-  subjects = r.data || [];
+function sfVals() {
+  return { q: $('sf-q').value.trim().toLowerCase(), dept: $('sf-dept').value, level: $('sf-level').value, term: $('sf-term').value, lect: $('sf-lect').value, arch: $('sf-arch').value };
+}
+function fillSubjectFilters() {
+  function fill(id, ph, items) {
+    var sel = $(id), cur = sel.value; sel.innerHTML = '';
+    var o0 = el('option', '', ph); o0.value = ''; sel.appendChild(o0);
+    items.forEach(function (x) { var o = el('option', '', x[1]); o.value = x[0]; sel.appendChild(o); });
+    sel.value = items.some(function (x) { return x[0] === cur; }) ? cur : '';
+  }
+  function uniq(fn) { var seen = {}, out = []; subjects.forEach(function (s) { var v = fn(s); if (v && !seen[v]) { seen[v] = 1; out.push(v); } }); return out; }
+  fill('sf-dept', 'كل الأقسام', uniq(function (s) { return s.department_id; }).map(function (id) { return [id, deptPath(id) || '—']; }).sort(function (a, b) { return a[1].localeCompare(b[1], 'ar'); }));
+  fill('sf-level', 'كل الفرق', uniq(function (s) { return s.level; }).sort().map(function (v) { return [v, v]; }));
+  fill('sf-term', 'كل الفصول', uniq(function (s) { return s.term; }).sort().map(function (v) { return [v, v]; }));
+  fill('sf-lect', 'كل المحاضرين', uniq(function (s) { return s.lecturer_name; }).sort(function (a, b) { return a.localeCompare(b, 'ar'); }).map(function (v) { return [v, v]; }));
+  $('sf-lect-box').hidden = !(me && (me.role === 'admin' || me.role === 'manager'));
+}
+function renderSubjects() {
   var box = $('subjects-list'); box.innerHTML = '';
+  var f = sfVals(), list = subjects.filter(function (s) {
+    if (f.arch === 'active' && s.archived) return false;
+    if (f.arch === 'archived' && !s.archived) return false;
+    if (f.dept && s.department_id !== f.dept) return false;
+    if (f.level && s.level !== f.level) return false;
+    if (f.term && s.term !== f.term) return false;
+    if (f.lect && (s.lecturer_name || '') !== f.lect) return false;
+    if (f.q && ((s.name || '') + ' ' + (s.lecturer_name || '')).toLowerCase().indexOf(f.q) < 0) return false;
+    return true;
+  });
+  $('sf-bar').hidden = subjects.length < 2;
+  $('sf-count').textContent = 'عرض ' + list.length + ' من ' + subjects.length + ' مادة';
   if (!subjects.length) box.appendChild(el('p', 'hint', 'لا توجد مواد بعد. أضف أول مادة من أيقونة «إضافة مادة».'));
-  subjects.forEach(function (s) {
+  else if (!list.length) box.appendChild(el('p', 'hint', 'لا توجد مواد تطابق التصفية. غيّر الفلاتر أو اضغط «إعادة ضبط».'));
+  list.forEach(function (s) {
     var c = el('div', 'subject-item');
-    var h = el('h3', '', s.name); if (s.archived) h.appendChild(el('span', 'tag', 'مؤرشفة'));
-    c.appendChild(h);
+    var top = el('div', 'si-top'), h = el('h3', '', s.name); top.appendChild(h);
+    if (s.archived) top.appendChild(el('span', 'tag', 'مؤرشفة'));
     var cnt = (s.subject_students && s.subject_students[0] && s.subject_students[0].count) || 0;
-    c.appendChild(el('div', 'meta', [s.level, s.term, deptPath(s.department_id), s.lecturer_name].filter(Boolean).join(' — ') + ' · ' + cnt + ' طالب'));
+    top.appendChild(el('span', 'cnt', cnt + ' طالب'));
+    c.appendChild(top);
+    var chips = el('div', 'si-chips');
+    [s.level, s.term, (deptPath(s.department_id) || '').split(' / ').pop(), s.lecturer_name].filter(Boolean).forEach(function (x) { chips.appendChild(el('span', 'tag', x)); });
+    c.appendChild(chips);
     var acts = el('div', 'actions');
     var b1 = iconBtn('', 'user-plus', 'إضافة طلاب'); b1.onclick = function () { startAddMode(s); }; acts.appendChild(b1);
     var b2 = iconBtn('', 'archive', s.archived ? 'إلغاء الأرشفة' : 'أرشفة'); b2.onclick = async function () {
@@ -1167,6 +1226,16 @@ async function loadSubjects() {
     c.appendChild(acts);
     box.appendChild(c);
   });
+}
+
+async function loadSubjects() {
+  var r = await sb.from('subjects')
+    .select('id,name,level,term,lecturer_id,pending_email,lecturer_name,archived,department_id,course_id,level_id,subject_students(count)')
+    .order('created_at', { ascending: false });
+  if (r.error) { $('subjects-list').textContent = errText(r.error); return; }
+  subjects = r.data || [];
+  fillSubjectFilters();
+  renderSubjects();
   ['s-subject', 'r-subject', 'u-subject', 'pg-subject'].forEach(function (id) {
     var sel = $(id), cur = sel.value; sel.innerHTML = '';
     subjects.filter(function (s) { return id !== 's-subject' || !s.archived; }).forEach(function (s) {
@@ -1393,9 +1462,14 @@ async function loadAppSettings() {
   if (r.error && admin) msg('sub-flash', /app_settings/.test(r.error.message || '') ? 'شغّل ملف lecturers_add_subjects.sql في Supabase لتفعيل هذا الخيار.' : errText(r.error), 'bad');
   var m = await sb.from('app_settings').select('managers_punch_report').maybeSingle();
   mgrPunch = !!(m.data && m.data.managers_punch_report);
-  $('mp-box').hidden = !admin; $('mp-on').checked = mgrPunch; $('mp-opt').classList.toggle('on', mgrPunch);
+  $('pun-tab-set').hidden = !admin; $('pun-tabs').style.gridTemplateColumns = 'repeat(' + (admin ? 3 : 2) + ',1fr)'; showPunPane('pn-report'); $('pr-reproc').hidden = !admin; $('pr-reproc').parentNode.style.gridTemplateColumns = 'repeat(' + (admin ? 3 : 2) + ',1fr)'; $('mp-on').checked = mgrPunch; $('mp-opt').classList.toggle('on', mgrPunch);
   if (me && me.role === 'manager' && mgrPunch) { buildNav(); go(curTab, curSub[curTab], true); }
 }
+function showPunPane(id) {
+  ['pn-report', 'pn-apply', 'mp-box'].forEach(function (x) { $(x).hidden = (x !== id); });
+  [].forEach.call(document.querySelectorAll('#pun-tabs .opt'), function (b) { b.classList.toggle('on', b.dataset.pane === id); });
+}
+[].forEach.call(document.querySelectorAll('#pun-tabs .opt'), function (b) { b.onclick = function () { showPunPane(b.dataset.pane); }; });
 $('mp-on').onchange = async function () {
   var on = this.checked, box = this;
   var r = await sb.rpc('set_managers_punch_report', { p_on: on });
@@ -1410,6 +1484,9 @@ $('s-lect-add').onchange = async function () {
   lectAddOn = on; $('adm-lect-opt').classList.toggle('on', on);
   msg('sub-flash', on ? 'تم السماح للمحاضرين بإضافة مواد (يظهر لهم بعد تحديث الصفحة).' : 'تم إيقاف إضافة المواد للمحاضرين.', 'ok');
 };
+
+['sf-q', 'sf-arch', 'sf-dept', 'sf-level', 'sf-term', 'sf-lect'].forEach(function (id) { $(id).addEventListener(id === 'sf-q' ? 'input' : 'change', renderSubjects); });
+$('sf-reset').onclick = function () { ['sf-q', 'sf-dept', 'sf-level', 'sf-term', 'sf-lect'].forEach(function (id) { $(id).value = ''; }); $('sf-arch').value = 'active'; renderSubjects(); };
 
 /* أيقونات المواد وكشوف الطلاب: موادي / إضافة مادة */
 function showSubPane(id) {
