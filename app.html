@@ -2028,6 +2028,10 @@ async function loadPunchReport(useCache) {
       ids.forEach(function (id) { var o = g[id] = g[id] || { p: 0, m: 0, s: {} }; o.p++; if (x.status === 'matched') o.m++; o.s[x.student_no] = 1; });
     });
     var order = deptTree().map(function (x) { return x.id; }).filter(function (id) { return g[id]; }); if (g._none) order.push('_none');
+    var realDepts = order.filter(function (x) { return x !== '_none'; }).length;
+    if (filt) box.appendChild(prTile((deptPath($('pr-dept').value) || '').split(' / ').pop() || '—', 'القسم المحدد', 'sitemap', '#7c3aed'));
+    else box.appendChild(prTile(realDepts, 'قسم لها بصمات', 'sitemap', '#7c3aed'));
+    if (filt) $('pr-range').textContent = 'القسم: ' + deptPath($('pr-dept').value) + ' — ' + $('pr-range').textContent;
     var db = $('pr-depts'); db.innerHTML = '';
     if (!order.length) { var t0 = el('tr'), c0 = el('td', '', 'لا توجد بصمات.'); c0.colSpan = 5; t0.appendChild(c0); db.appendChild(t0); }
     order.forEach(function (id) {
@@ -2761,7 +2765,7 @@ function renderUx() {
   uxItems.forEach(function (r) {
     var tr = el('tr');
     [String(r.n), r.email, r.name, r.role ? UX_ROLE_AR[r.role] : (r.roleTxt || '—'), r.deptName || r.dept || '—'].forEach(function (v) { tr.appendChild(el('td', '', v)); });
-    var td = el('td', '', r.note); if (r.status === 'err') { td.style.color = '#b91c1c'; bad++; } else { if (r.role === 'admin') td.style.color = '#b45309'; ok++; } tr.appendChild(td); tb.appendChild(tr);
+    var td = el('td', '', r.note); if (r.status === 'err') { td.style.color = 'var(--bad)'; bad++; } else { if (r.role === 'admin') td.style.color = '#b45309'; ok++; } tr.appendChild(td); tb.appendChild(tr);
   });
   $('ux-sum').textContent = 'جاهز للاستيراد: ' + ok + ' — مرفوض: ' + bad;
   $('ux-go').disabled = !ok;
@@ -3031,7 +3035,7 @@ function renderSchGrid() {
       schCellSlots(g.cell(d, tm), mode).forEach(function (t, i) {
         var box = el('div'); if (i) box.style.cssText = 'border-top:1px dashed var(--line);margin-top:6px;padding-top:6px';
         schCellLines(t, mode).forEach(function (ln, k) { var dv = el('div', '', ln); if (k === 0) dv.style.fontWeight = '700'; box.appendChild(dv); });
-        if (schBad[t.id]) { box.style.background = '#fee2e2'; box.style.borderRadius = '6px'; box.title = 'يوجد تعارض في هذا الموعد'; }
+        if (schBad[t.id]) { box.style.background = 'var(--bad-bg)'; box.style.border = '1px solid var(--bad)'; box.style.borderRadius = '6px'; box.title = 'يوجد تعارض في هذا الموعد'; }
         td.appendChild(box);
       });
       tr.appendChild(td);
@@ -3052,10 +3056,10 @@ function renderSchRows() {
   if (!list.length) { var tr0 = el('tr'), td0 = el('td', '', 'لا توجد مواعيد.'); td0.colSpan = 8; tr0.appendChild(td0); tb.appendChild(tr0); return; }
   list.forEach(function (t) {
     var s = schSub(t), h = schHall(t.hall_id), tr = el('tr');
-    if (schBad[t.id]) tr.style.background = '#fee2e2';
+    if (schBad[t.id]) tr.style.background = 'var(--bad-bg)'; tr.title = 'يوجد تعارض في هذا الموعد';
     var cnt = schCount(s), over = h && h.capacity && (t.shared_group ? schShareStudents(t) : cnt) > h.capacity;
     [TT_DAYS[t.weekday], schRange(t), (s.name || '') + (t.shared_group && schShareMembers(t).length > 1 ? ' (مشتركة)' : ''), schGroupLabel(s), s.lecturer_name || '—', h ? h.name : '—', (t.shared_group ? schShareStudents(t) : cnt) + (h && h.capacity ? ' / ' + h.capacity : '')].forEach(function (v, i) {
-      var td = el('td', '', v); if (i === 6 && over) td.style.color = '#b91c1c'; tr.appendChild(td);
+      var td = el('td', '', v); if (i === 6 && over) td.style.color = 'var(--bad)'; tr.appendChild(td);
     });
     var td = el('td');
     var e = el('button', '', 'تعديل'); e.type = 'button'; e.style.padding = '3px 10px';
@@ -3313,7 +3317,7 @@ function renderSchImport() {
     var tr = el('tr'), it = r.it;
     [String(it.line), it.subject, it.lecturer || '—', [it.dept, it.spec].filter(Boolean).join(' / ') || '—', [it.level, it.term].filter(Boolean).join(' — ') || '—', it.day, r.range || it.slot || it.start, it.hall || '—'].forEach(function (v) { tr.appendChild(el('td', '', v)); });
     var st = r.err ? r.err : (r.op === 'update' ? 'تحديث موعد قائم' : 'موعد جديد') + (r.shareKey ? ' (محاضرة مشتركة)' : '') + (r.news.length ? ' — سيُنشأ: ' + r.news.join('، ') : '') + (r.assignLec ? ' — سيُسنَد: ' + (r.assignLec.name) : '') + (r.lecNote ? ' — ' + r.lecNote : '') + (r.warn.length ? ' — تعارض: ' + r.warn.join('، ') : '');
-    var td = el('td', '', st); if (r.err) { td.style.color = '#b91c1c'; bad++; } else if (r.warn.length) { td.style.color = '#b45309'; cf++; ok++; } else ok++;
+    var td = el('td', '', st); if (r.err) { td.style.color = 'var(--bad)'; bad++; } else if (r.warn.length) { td.style.color = '#b45309'; cf++; ok++; } else ok++;
     tr.appendChild(td); tb.appendChild(tr);
   });
   var np = schPlan || { depts: [], levels: [], subs: [] };
