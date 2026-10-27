@@ -773,16 +773,21 @@ catch(e){document.documentElement.dataset.theme='azhar';}
     <div id="pr-box" hidden>
       <div class="stats" id="pr-stats"></div>
       <p class="hint" id="pr-range" style="margin:0 0 12px"></p>
-      <div class="card">
+      <div class="subnav" id="pr-sub">
+        <button type="button" class="on" data-prs="dept" data-ic="sitemap">حسب القسم</button>
+        <button type="button" data-prs="day" data-ic="calendar">حسب اليوم</button>
+        <button type="button" data-prs="rows" data-ic="list">البصمات</button>
+      </div>
+      <div class="card" data-prs="dept">
         <h2 data-ic="sitemap">حسب القسم</h2>
         <p class="hint" style="margin-top:0">اضغط على أي قسم لعرض بصماته فقط.</p>
         <div class="scroll"><table><thead><tr><th>القسم</th><th>الطلاب</th><th>البصمات</th><th>تم تسجيل حضورهم</th><th>النسبة</th></tr></thead><tbody id="pr-depts"></tbody></table></div>
       </div>
-      <div class="card">
+      <div class="card" data-prs="day" hidden>
         <h2 data-ic="calendar">حسب اليوم</h2>
         <div class="scroll"><table><thead><tr><th>اليوم</th><th>البصمات</th><th>الطلاب</th><th>تم تسجيل حضورهم</th></tr></thead><tbody id="pr-days"></tbody></table></div>
       </div>
-      <div class="card">
+      <div class="card" data-prs="rows" hidden>
         <h2 data-ic="list">البصمات</h2>
         <p class="hint" id="pr-count" style="margin-top:0"></p>
         <div class="scroll"><table><thead><tr><th>الوقت</th><th>الرقم الأكاديمي</th><th>الاسم</th><th>القسم</th><th>الجهاز</th><th>الحالة</th><th>المادة</th></tr></thead><tbody id="pr-rows"></tbody></table></div>
@@ -1109,6 +1114,14 @@ function navBtn(cls, text, ic, attrs) {
   Object.keys(attrs || {}).forEach(function (k) { b.setAttribute(k, attrs[k]); });
   return b;
 }
+var curPRS = 'dept';
+function applyPRS() {
+  [].forEach.call(document.querySelectorAll('#pr-box [data-prs]'), function (c) { if (c.tagName === 'BUTTON') c.classList.toggle('on', c.dataset.prs === curPRS); else c.hidden = (c.dataset.prs !== curPRS); });
+}
+document.addEventListener('click', function (e) {
+  var b = e.target.closest && e.target.closest('#pr-sub [data-prs]'); if (!b) return;
+  curPRS = b.dataset.prs; applyPRS();
+});
 var curHP = 'halls';
 function applyHP() {
   [].forEach.call(document.querySelectorAll('#tab-admin [data-hp]'), function (c) { if (c.tagName === 'BUTTON') c.classList.toggle('on', c.dataset.hp === curHP); else c.hidden = (c.dataset.hp !== curHP); });
@@ -1973,7 +1986,7 @@ async function loadPunchReport() {
     var matched = filt ? rows.filter(function (x) { return x.status === 'matched'; }).length : (st.matched || 0);
     var total = filt ? rows.length : d.total;
     var stu = {}; rows.forEach(function (x) { stu[x.student_no] = 1; });
-    $('pr-box').hidden = false;
+    $('pr-box').hidden = false; applyPRS();
     var box = $('pr-stats'); box.innerHTML = '';
     box.appendChild(prTile(total, 'بصمة', 'clock', '#0b6b4f'));
     box.appendChild(prTile(filt ? Object.keys(stu).length : d.students, 'طالب', 'users', '#2563eb'));
