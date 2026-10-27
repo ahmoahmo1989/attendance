@@ -723,7 +723,7 @@ catch(e){document.documentElement.dataset.theme='azhar';}
     </div>
     <div class="card" data-sub="punches">
       <h2 data-ic="users">تطبيق البصمات على مواد المجموعة</h2>
-      <p class="hint" style="margin-top:0">اختر أي مادة، وسيُسجَّل حضور الطلاب (بحسب بصماتهم المستوردة) في <b>كل مواد نفس القسم والفرقة والفصل</b> دفعة واحدة. كل يوم فيه بصمة يُنشأ له جلسة مغلقة لكل مادة. آمن للتكرار.</p>
+      <p class="hint" style="margin-top:0">اختر أي مادة، وسيُسجَّل حضور الطلاب (بحسب بصماتهم المستوردة) في <b>كل مواد نفس القسم والفرقة والفصل</b> دفعة واحدة. يُحسب الحضور فقط في اليوم الموافق لموعد المادة في «جدولي»، وأكثر من بصمة في اليوم = حضور واحد. المادة التي بلا موعد في الجدول تُتخطى. آمن للتكرار.</p>
       <label for="pg-subject" data-ic="book">المادة (تحدد المجموعة)</label>
       <select id="pg-subject"></select>
       <div class="row">
@@ -1429,7 +1429,8 @@ $('pg-go').onclick = async function () {
   var r = await sb.rpc('apply_punches_to_group', { p_subject: sid, p_from: $('pg-from').value || null, p_to: $('pg-to').value || null });
   if (r.error) { msg('pg-msg', /apply_punches_to_group/.test(r.error.message || '') ? 'شغّل ملف apply_punches_group.sql في Supabase أولًا.' : errText(r.error), 'bad'); return; }
   var d = r.data || {};
-  msg('pg-msg', 'تم: ' + d.subjects + ' مادة (' + (d.subject_names || []).join('، ') + ') — جلسات جديدة: ' + d.sessions_created + ' — حضور مضاف: ' + d.attendance_added, 'ok');
+  msg('pg-msg', 'تم: ' + d.subjects + ' مادة (' + (d.subject_names || []).join('، ') + ') — جلسات جديدة: ' + d.sessions_created + ' — حضور مضاف: ' + d.attendance_added +
+    ((d.skipped_no_schedule || []).length ? ' — تم تخطي (بلا موعد في جدولي): ' + d.skipped_no_schedule.join('، ') : ''), (d.skipped_no_schedule || []).length ? 'bad' : 'ok');
   loadPunchReport();
 };
 $('pr-go').onclick = loadPunchReport;
