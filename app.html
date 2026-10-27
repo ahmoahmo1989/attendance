@@ -41,6 +41,7 @@ catch(e){document.documentElement.dataset.theme='azhar';}
   [data-ic="user"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E"); }
   [data-ic="user-plus"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='8.5' cy='7' r='4'/%3E%3Cline x1='20' y1='8' x2='20' y2='14'/%3E%3Cline x1='23' y1='11' x2='17' y2='11'/%3E%3C/svg%3E"); }
   [data-ic="user-check"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='8.5' cy='7' r='4'/%3E%3Cpolyline points='17 11 19 13 23 9'/%3E%3C/svg%3E"); }
+  [data-ic="grid"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2'/%3E%3Cline x1='3' y1='9' x2='21' y2='9'/%3E%3Cline x1='3' y1='15' x2='21' y2='15'/%3E%3Cline x1='9' y1='3' x2='9' y2='21'/%3E%3Cline x1='15' y1='3' x2='15' y2='21'/%3E%3C/svg%3E"); }
   [data-ic="calendar"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E"); }
   [data-ic="clock"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpolyline points='12 6 12 12 16 14'/%3E%3C/svg%3E"); }
   [data-ic="chart"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='18' y1='20' x2='18' y2='10'/%3E%3Cline x1='12' y1='20' x2='12' y2='4'/%3E%3Cline x1='6' y1='20' x2='6' y2='14'/%3E%3C/svg%3E"); }
@@ -490,13 +491,13 @@ catch(e){document.documentElement.dataset.theme='azhar';}
         </div>
         <button id="start" data-ic="play" class="primary">ابدأ الجلسة</button>
         <details style="margin-top:12px"><summary style="cursor:pointer;font-weight:600">حفظ هذه الإعدادات في «جدولي»</summary>
-          <div class="row">
+          <div class="row" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
             <div><label for="tt-day">اليوم</label><select id="tt-day">
               <option value="6">السبت</option><option value="0">الأحد</option><option value="1">الاثنين</option>
               <option value="2">الثلاثاء</option><option value="3">الأربعاء</option><option value="4">الخميس</option><option value="5">الجمعة</option>
             </select></div>
             <div><label for="tt-time">وقت بدء المحاضرة</label><input id="tt-time" type="time" value="09:00"></div>
-            <div><label for="tt-len">مدة المحاضرة (دقيقة)</label><input id="tt-len" type="number" min="15" max="480" value="90" inputmode="numeric"></div>
+            <div><label for="tt-len">المدة (دقيقة)</label><input id="tt-len" type="number" min="15" max="480" value="90" inputmode="numeric"></div>
           </div>
           <p><button id="tt-save" type="button" data-ic="check">حفظ في جدولي</button></p>
         </details>
@@ -624,30 +625,30 @@ catch(e){document.documentElement.dataset.theme='azhar';}
   <!-- القوائم والربط (للمدير) -->
   <section id="tab-schedule" hidden>
     <div class="card">
-      <h2 data-ic="calendar">تسكين موعد محاضرة</h2>
+      <h2 data-ic="edit">تسكين موعد محاضرة</h2>
       <p class="hint" style="margin-top:0">اختر المادة والقاعة واليوم والوقت. يفحص النظام فورًا تعارض القاعة والمحاضر والفرقة وسعة القاعة قبل الحفظ. الموعد المحفوظ هنا هو نفسه الذي يُحسب عليه الحضور وتقرير البصمات.</p>
       <div id="sc-msg" class="msg" hidden></div>
       <div class="row">
         <div><label for="sc-subject">المادة</label><select id="sc-subject"></select></div>
         <div><label for="sc-hall">القاعة</label><select id="sc-hall"></select></div>
       </div>
-      <div class="row">
+      <div class="row" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
         <div><label for="sc-day">اليوم</label><select id="sc-day">
           <option value="6">السبت</option><option value="0">الأحد</option><option value="1">الاثنين</option>
           <option value="2">الثلاثاء</option><option value="3">الأربعاء</option><option value="4">الخميس</option><option value="5">الجمعة</option>
         </select></div>
         <div><label for="sc-time">وقت البدء</label><input id="sc-time" type="time" value="09:00"></div>
-        <div><label for="sc-len">مدة المحاضرة (دقيقة)</label><input id="sc-len" type="number" min="15" max="480" value="90" inputmode="numeric"></div>
+        <div><label for="sc-len">المدة (دقيقة)</label><input id="sc-len" type="number" min="15" max="480" value="90" inputmode="numeric"></div>
       </div>
       <ul class="plain" id="sc-warn"></ul>
-      <p><button id="sc-save" type="button" class="primary" data-ic="check">حفظ الموعد</button> <button id="sc-cancel" type="button" data-ic="x" hidden>إلغاء التعديل</button></p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button id="sc-save" type="button" class="primary" data-ic="check" style="flex:1 1 180px">حفظ الموعد</button><button id="sc-cancel" type="button" data-ic="x" hidden style="flex:0 0 auto">إلغاء التعديل</button></div>
     </div>
     <div class="card">
       <h2 data-ic="alert">التعارضات الحالية <span id="sc-confn"></span></h2>
       <ul class="plain" id="sc-conf"></ul>
     </div>
     <div class="card">
-      <h2 data-ic="layers">الجدول الأسبوعي</h2>
+      <h2 data-ic="grid">الجدول الأسبوعي</h2>
       <div class="row">
         <div><label for="sc-mode">عرض حسب</label><select id="sc-mode">
           <option value="group">الفرقة والقسم</option><option value="hall">القاعة</option><option value="lect">المحاضر</option></select></div>
@@ -1006,7 +1007,7 @@ var NAV = [
     ['lecturers', 'نشاط المحاضرين', 'users', 1, '#d97706', 'محاضرات كل محاضر وآخر نشاط']] },
   { id: 'subjects', t: 'المواد وكشوف الطلاب', ic: 'book' },
   { id: 'session', t: 'جلسة حضور', ic: 'qr' },
-  { id: 'schedule', t: 'الجدول الرئيسي', ic: 'calendar', sch: 1 },
+  { id: 'schedule', t: 'الجدول الرئيسي', ic: 'grid', sch: 1 },
   { id: 'reports', t: 'التقارير', ic: 'chart' },
   { id: 'punches', t: 'تقرير البصمات', ic: 'clock', pun: 1 },
   { id: 'lists', t: 'القوائم والربط', ic: 'layers', admin: 1, subs: [
