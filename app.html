@@ -412,6 +412,8 @@ catch(e){document.documentElement.dataset.theme='azhar';}
         <p class="hint" id="roster-count"></p>
         <div class="scroll"><table><thead><tr><th>رقم الجلوس</th><th>الاسم</th></tr></thead><tbody id="roster-rows"></tbody></table></div>
       </div>
+      <label class="opt" id="f-alldept-box" hidden style="display:block;margin:10px 0"><input id="f-alldept" type="checkbox" checked><span> إضافة نفس الطلاب إلى <b>كل مواد القسم</b> (نفس الفرقة ونفس الفصل الدراسي)</span></label>
+      <p class="hint" id="f-alldept-hint" hidden></p>
       <button id="roster-save" data-ic="check" class="primary">حفظ المادة والكشف</button>
       <p><button id="roster-cancel" data-ic="x" type="button" hidden>إلغاء</button></p>
       <div id="roster-msg" class="msg" hidden></div>
@@ -1523,6 +1525,7 @@ function resetRosterForm() {
   $('roster-title').textContent = 'إضافة مادة وكشف طلاب';
   $('roster-save').textContent = 'حفظ المادة والكشف';
   $('roster-cancel').hidden = true;
+  $('f-alldept-box').hidden = true; $('f-alldept-hint').hidden = true;
   ['f-subject', 'f-level', 'f-term'].forEach(function (i) { $(i).value = ''; });
   fillCatalog();
   $('sub-tab-add').hidden = !canAddSubjects();   // «إضافة مادة»: للمدير دائمًا، وللمحاضر فقط لو فعّل المدير الخيار
@@ -1534,10 +1537,22 @@ function startAddMode(s) {
   $('roster-title').textContent = 'إضافة طلاب إلى: ' + s.name + ' — ' + s.level + (s.term ? ' — ' + s.term : '');
   $('roster-save').textContent = 'إضافة الطلاب للكشف';
   $('roster-cancel').hidden = false;
+  var sibs = siblingSubjects(s.id);
+  $('f-alldept').checked = true; $('f-alldept-box').hidden = !sibs.length;
+  $('f-alldept-hint').hidden = !sibs.length; $('f-alldept-hint').textContent = sibs.length ? 'سيُضاف الطلاب أيضًا إلى ' + sibs.length + ' مادة أخرى في نفس القسم والفرقة والفصل.' : '';
   showSubPane('roster-card');
   window.scrollTo(0, 0);
 }
 $('roster-cancel').onclick = resetRosterForm;
+
+// باقي مواد نفس القسم والفرقة والفصل الدراسي (غير المؤرشفة)
+function siblingSubjects(id) {
+  var cur = subjects.filter(function (x) { return x.id === id; })[0];
+  if (!cur || !cur.department_id) return [];
+  return subjects.filter(function (x) {
+    return x.id !== id && !x.archived && x.department_id === cur.department_id && x.level_id === cur.level_id && String(x.term || '') === String(cur.term || '');
+  });
+}
 
 async function countStudents(subjectId) {
   var r = await sb.from('subject_students').select('seat', { count: 'exact', head: true }).eq('subject_id', subjectId);
@@ -1564,6 +1579,14 @@ $('roster-save').onclick = async function () {
     if (addToId) {
       var r = await saveStudents(addToId, students);
       text = 'تمت إضافة ' + r.added + ' طالب (الإجمالي ' + r.total + ')' + (r.duplicates ? ' — ' + r.duplicates + ' موجود مسبقًا وتم تجاهله' : '') + '.';
+      if ($('f-alldept').checked && !$('f-alldept-box').hidden) {
+        var sibs = siblingSubjects(addToId), okS = 0, failS = 0;
+        for (var si = 0; si < sibs.length; si++) {
+          msg('roster-msg', 'جارٍ الإضافة لباقي مواد القسم… (' + (si + 1) + ' من ' + sibs.length + ')');
+          try { await saveStudents(sibs[si].id, students); okS++; } catch (e2) { failS++; }
+        }
+        text += ' وأُضيفوا أيضًا إلى ' + okS + ' مادة أخرى في نفس القسم' + (failS ? ' (تعذّرت ' + failS + ' مادة، غالبًا لعدم الصلاحية)' : '') + '.';
+      }
     } else {
       var courseId = $('f-subject').value, levelId = $('f-level').value, deptId = $('f-dept').value, termV = $('f-term').value;
       if (!deptId || !levelId || !courseId) throw new Error('اختر القسم والفرقة والمادة من القوائم.');
