@@ -203,6 +203,18 @@ catch(e){document.documentElement.dataset.theme='azhar';}
   .hero-sub { opacity:.85; margin:0 0 18px; }
   .sf-bar { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; }
   .sf-bar .row { margin-bottom: 6px; }
+  .hall-form { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; align-items:end; margin-bottom:12px; }
+  .hall-form > div { min-width:0; }
+  .hall-form button { width:100%; }
+  .hall-list { list-style:none; margin:14px 0 0; padding:0; display:grid; gap:10px; }
+  .hall-item { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; padding:12px 14px; border:1px solid var(--line, rgba(255,255,255,.12)); border-radius:14px; background:rgba(255,255,255,.03); }
+  .hall-item .hi-name { font-weight:800; font-size:1.02em; }
+  .hall-item .hi-meta { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  .hall-item .hi-chip { font-size:.82em; padding:2px 10px; border-radius:999px; border:1px solid var(--line, rgba(255,255,255,.18)); opacity:.9; }
+  .hall-item .hi-act { display:flex; gap:8px; flex-wrap:wrap; }
+  .hall-item .hi-act button { padding:6px 14px; }
+  #dv-rows td:last-child { white-space:nowrap; }
+  .imp-link { margin:12px 0; padding:12px 14px; border:1px dashed var(--line, rgba(255,255,255,.25)); border-radius:14px; }
   .sf-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
   .subject-item .si-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .subject-item .si-top h3 { margin: 0; }
@@ -866,27 +878,25 @@ catch(e){document.documentElement.dataset.theme='azhar';}
       <h2 data-ic="pin">القاعات</h2>
       <p class="hint">أضف كل قاعة أو مدرج فيه جهاز بصمة. اختيار القاعة عند بدء الجلسة هو الذي يربط بصمات الطلاب بالمحاضرة.</p>
       <div id="h-msg" class="msg" hidden></div>
-      <div class="row">
+      <div class="hall-form">
         <div><label for="h-name">اسم القاعة</label><input id="h-name" placeholder="مثال: مدرج 1"></div>
         <div><label for="h-building">المبنى (اختياري)</label><input id="h-building" placeholder="مثال: المبنى الرئيسي"></div>
         <div><label for="h-cap">السعة (عدد المقاعد)</label><input id="h-cap" type="number" min="1" inputmode="numeric" placeholder="مثال: 300"></div>
+        <div><button id="h-add" data-ic="plus" class="primary" type="button">إضافة قاعة</button></div>
       </div>
-      <button id="h-add" data-ic="plus" class="primary" type="button">إضافة قاعة</button>
-      <ul class="plain" id="h-list"></ul>
+      <ul class="hall-list" id="h-list"></ul>
     </div>
     <div class="card" data-sub="halls">
       <h2 data-ic="settings">أجهزة البصمة</h2>
       <p class="hint">اربط كل جهاز بقاعته. «رقم الجهاز» هو الرقم الظاهر على شاشة الجهاز في «معلومات النظام»، وعنوان IP كذلك (الأصفار الزائدة مثل 192.168.001.191 تُحذف تلقائيًا).</p>
       <div id="dv-msg" class="msg" hidden></div>
-      <div class="row">
+      <div class="hall-form">
         <div><label for="dv-no">رقم الجهاز</label><input id="dv-no" type="number" min="1" inputmode="numeric" placeholder="2249"></div>
         <div><label for="dv-hall">القاعة</label><select id="dv-hall"></select></div>
-      </div>
-      <div class="row">
         <div><label for="dv-ip">عنوان IP (اختياري)</label><input id="dv-ip" dir="ltr" inputmode="decimal" placeholder="192.168.1.191"></div>
         <div><label for="dv-model">الموديل (اختياري)</label><input id="dv-model" dir="ltr" value="AD-505W-AI"></div>
       </div>
-      <p><button id="dv-save" data-ic="plus" class="primary" type="button">إضافة جهاز</button> <button id="dv-cancel" type="button" hidden>إلغاء التعديل</button></p>
+      <div class="hall-form"><div><button id="dv-save" data-ic="plus" class="primary" type="button">إضافة جهاز</button></div><div><button id="dv-cancel" type="button" hidden>إلغاء التعديل</button></div></div>
       <div class="scroll"><table><thead><tr><th>رقم الجهاز</th><th>القاعة</th><th>IP</th><th>الموديل</th><th>آخر بصمة</th><th>الحالة</th><th></th></tr></thead><tbody id="dv-rows"></tbody></table></div>
     </div>
     <div class="card" data-sub="halls">
@@ -904,6 +914,11 @@ catch(e){document.documentElement.dataset.theme='azhar';}
             <option value="last8">آخر 8 أرقام بعد حذف الأصفار</option>
             <option value="asis">كما هو</option>
           </select></div>
+      </div>
+      <div class="imp-link">
+        <label for="imp-subject" data-ic="book">ربط البصمات بالقسم (اختر أي مادة من القسم والفرقة والفصل)</label>
+        <select id="imp-subject"></select>
+        <p class="hint" style="margin:6px 0 0">بعد الاستيراد يُسجَّل الحضور تلقائيًا في <b>كل مواد نفس القسم والفرقة والفصل</b>، بحسب يوم كل مادة في الجدول، دون خطوة «تطبيق على المواد» اليدوية. اختر «بدون ربط» للاستيراد فقط.</p>
       </div>
       <div id="imp-preview" hidden>
         <ul class="plain" id="imp-sum"></ul>
@@ -1391,8 +1406,9 @@ async function loadSubjects() {
   fillSubjectFilters();
   renderSubjects();
   fillIndSubjects();
-  ['s-subject', 'r-subject', 'u-subject', 'pg-subject'].forEach(function (id) {
+  ['s-subject', 'r-subject', 'u-subject', 'pg-subject', 'imp-subject'].forEach(function (id) {
     var sel = $(id), cur = sel.value; sel.innerHTML = '';
+    if (id === 'imp-subject') { var o0 = el('option', '', '— بدون ربط (استيراد فقط) —'); o0.value = ''; sel.appendChild(o0); }
     subjects.filter(function (s) { return id !== 's-subject' || !s.archived; }).forEach(function (s) {
       var o = el('option', '', s.name + ' — ' + s.level + (s.term ? ' — ' + s.term : '') + ((me.role === 'admin' || me.role === 'manager') ? ' (' + s.lecturer_name + ')' : '')); o.value = s.id; sel.appendChild(o);
     });
@@ -3285,8 +3301,14 @@ function renderHalls() {
   if (!halls.length) ul.appendChild(el('li', '', 'لا توجد قاعات بعد. أضف أول قاعة.'));
   halls.forEach(function (h) {
     var n = devices.filter(function (d) { return d.hall_id === h.id; }).length;
-    var li = el('li', '', h.name + (h.building ? ' — ' + h.building : '') + (h.capacity ? ' · سعة ' + h.capacity : ' · بدون سعة') + ' · ' + n + ' جهاز ');
-    var cb = el('button', '', 'السعة'); cb.type = 'button'; cb.style.padding = '3px 10px'; cb.style.marginInlineStart = '6px';
+    var li = el('li', 'hall-item'), info = el('div', 'hi-main'), act = el('div', 'hi-act');
+    info.appendChild(el('div', 'hi-name', h.name));
+    var meta = el('div', 'hi-meta');
+    if (h.building) meta.appendChild(el('span', 'hi-chip', 'المبنى: ' + h.building));
+    meta.appendChild(el('span', 'hi-chip', h.capacity ? 'السعة: ' + h.capacity + ' مقعد' : 'بدون سعة'));
+    meta.appendChild(el('span', 'hi-chip', n + ' جهاز'));
+    info.appendChild(meta); li.appendChild(info); li.appendChild(act);
+    var cb = el('button', '', 'تعديل السعة'); cb.type = 'button';
     cb.onclick = async function () {
       var v = window.prompt('سعة ' + h.name + ' (عدد المقاعد):', h.capacity || '');
       if (v === null) return;
@@ -3295,16 +3317,15 @@ function renderHalls() {
       var u = await sb.from('halls').update({ capacity: n2 }).eq('id', h.id);
       if (u.error) msg('h-msg', /capacity/.test(errText(u.error)) ? 'شغّل ملف schedule.sql في Supabase أولًا.' : errText(u.error), 'bad'); else { msg('h-msg', ''); loadHallsAdmin(); }
     };
-    li.appendChild(cb);
+    act.appendChild(cb);
     var b = el('button', 'danger', 'حذف'), armed = false;
-    b.style.padding = '3px 10px'; b.style.marginInlineStart = '6px';
     b.onclick = async function () {
       if (!armed) { armed = true; b.textContent = 'اضغط للتأكيد'; setTimeout(function () { armed = false; b.textContent = 'حذف'; }, 5000); return; }
       var r = await sb.from('halls').delete().eq('id', h.id);
       if (r.error) msg('h-msg', /foreign|23503/i.test(errText(r.error) + (r.error.code || '')) ? 'لا يمكن حذف قاعة مرتبطة بأجهزة أو بجلسات سابقة. انقل أجهزتها لقاعة أخرى أولًا.' : errText(r.error), 'bad');
       else { msg('h-msg', ''); loadHallsAdmin(); }
     };
-    li.appendChild(b); ul.appendChild(li);
+    act.appendChild(b); ul.appendChild(li);
   });
 }
 
@@ -3600,6 +3621,19 @@ $('imp-go').onclick = async function () {
     var ul = $('imp-res');
     Object.keys(tot.status).forEach(function (k) { ul.appendChild(el('li', '', (IMP_STATUS[k] || k) + ': ' + tot.status[k])); });
     if (tot.status.no_session) ul.appendChild(el('li', 'hint', 'البصمات «بدون جلسة» تُسجَّل حضورًا لو فتحت جلسة في نفس القاعة تغطي وقتها، ثم شغّل «إعادة المطابقة» من Supabase (select reprocess_unmatched();).'));
+    var isid = $('imp-subject').value;
+    if (isid && list.length) {
+      var mn2 = list[0].ms, mx2 = mn2; list.forEach(function (x) { if (x.ms < mn2) mn2 = x.ms; if (x.ms > mx2) mx2 = x.ms; });
+      var dOf = function (ms) { return new Date(ms).toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' }); };
+      msg('imp-msg', 'تم الاستيراد. جارٍ ربط البصمات بمواد القسم…');
+      var ar = await sb.rpc('apply_punches_to_group', { p_subject: isid, p_from: dOf(mn2), p_to: dOf(mx2) });
+      if (ar.error) { msg('imp-msg', 'تم استيراد ' + tot.inserted + ' بصمة، لكن تعذّر الربط بالقسم: ' + (/apply_punches_to_group/.test(ar.error.message || '') ? 'شغّل ملف apply_punches_group.sql في Supabase أولًا.' : errText(ar.error)), 'bad'); }
+      else {
+        var ad = ar.data || {};
+        msg('imp-msg', 'تم استيراد ' + tot.inserted + ' بصمة جديدة (تجاهل ' + tot.skipped + ' مكررة) وربطها بـ ' + ad.subjects + ' مادة (' + (ad.subject_names || []).join('، ') + ') — جلسات جديدة: ' + ad.sessions_created + ' — حضور مضاف: ' + ad.attendance_added +
+          ((ad.skipped_no_schedule || []).length ? ' — تم تخطي (بلا موعد في الجدول): ' + ad.skipped_no_schedule.join('، ') : ''), (ad.skipped_no_schedule || []).length ? 'bad' : 'ok');
+      }
+    }
     loadHallsAdmin();
   } catch (e) {
     var t = errText(e) + ((e && e.code) || '');
