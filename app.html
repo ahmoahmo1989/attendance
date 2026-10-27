@@ -743,6 +743,7 @@ catch(e){document.documentElement.dataset.theme='azhar';}
         <div><label for="pr-status">الحالة</label><select id="pr-status">
           <option value="">كل الحالات</option><option value="matched">تم تسجيل الحضور</option><option value="no_session">بدون جلسة</option>
           <option value="no_device">جهاز/قاعة غير مفعّل</option><option value="not_in_roster">ليس في الكشف</option><option value="pending">لم تُطابق بعد</option><option value="error">خطأ</option></select></div>
+        <div><label for="pr-dept">القسم</label><select id="pr-dept"><option value="">كل الأقسام</option></select></div>
         <div><label for="pr-student">الرقم الأكاديمي (اختياري)</label><input id="pr-student" inputmode="numeric" autocomplete="off" placeholder="كل الطلاب"></div>
       </div>
       <div class="opts" style="grid-template-columns:repeat(3,1fr)">
@@ -754,11 +755,14 @@ catch(e){document.documentElement.dataset.theme='azhar';}
       <div id="pr-box" hidden>
         <div class="stats" id="pr-stats"></div>
         <p class="hint" id="pr-range" style="margin:0 0 8px"></p>
+        <h3 data-ic="sitemap">حسب القسم</h3>
+        <p class="hint" style="margin:0 0 6px">اضغط على أي قسم لعرض بصماته فقط.</p>
+        <div class="scroll"><table><thead><tr><th>القسم</th><th>الطلاب</th><th>البصمات</th><th>تم تسجيل حضورهم</th><th>النسبة</th></tr></thead><tbody id="pr-depts"></tbody></table></div>
         <h3 data-ic="calendar">حسب اليوم</h3>
         <div class="scroll"><table><thead><tr><th>اليوم</th><th>البصمات</th><th>الطلاب</th><th>تم تسجيل حضورهم</th></tr></thead><tbody id="pr-days"></tbody></table></div>
         <h3 data-ic="list">البصمات</h3>
         <p class="hint" id="pr-count" style="margin:0 0 6px"></p>
-        <div class="scroll"><table><thead><tr><th>الوقت</th><th>الرقم الأكاديمي</th><th>الاسم</th><th>الجهاز</th><th>الحالة</th><th>المادة</th></tr></thead><tbody id="pr-rows"></tbody></table></div>
+        <div class="scroll"><table><thead><tr><th>الوقت</th><th>الرقم الأكاديمي</th><th>الاسم</th><th>القسم</th><th>الجهاز</th><th>الحالة</th><th>المادة</th></tr></thead><tbody id="pr-rows"></tbody></table></div>
       </div>
     </div>
   </section>
@@ -874,7 +878,12 @@ catch(e){document.documentElement.dataset.theme='azhar';}
       <h2 data-ic="shield-check">المسجَّلون على النظام</h2>
       <div class="scroll"><table><thead><tr><th>الاسم</th><th>البريد</th><th>الصلاحية</th><th>الحالة</th><th></th></tr></thead><tbody id="a-users"></tbody></table></div>
     </div>
-    <div class="card" data-sub="halls">
+    <div class="opts" id="hp-tabs" data-sub="halls" style="grid-template-columns:repeat(3,1fr);margin-top:0">
+      <button type="button" class="opt on" data-hp="halls" title="القاعات"><i class="ico" data-ic="pin"></i><span>القاعات</span></button>
+      <button type="button" class="opt" data-hp="devices" title="أجهزة البصمة"><i class="ico" data-ic="settings"></i><span>أجهزة البصمة</span></button>
+      <button type="button" class="opt" data-hp="import" title="استيراد بصمات الأجهزة"><i class="ico" data-ic="upload"></i><span>استيراد البصمات</span></button>
+    </div>
+    <div class="card" data-sub="halls" data-hp="halls">
       <h2 data-ic="pin">القاعات</h2>
       <p class="hint">أضف كل قاعة أو مدرج فيه جهاز بصمة. اختيار القاعة عند بدء الجلسة هو الذي يربط بصمات الطلاب بالمحاضرة.</p>
       <div id="h-msg" class="msg" hidden></div>
@@ -886,7 +895,7 @@ catch(e){document.documentElement.dataset.theme='azhar';}
       </div>
       <ul class="hall-list" id="h-list"></ul>
     </div>
-    <div class="card" data-sub="halls">
+    <div class="card" data-sub="halls" data-hp="devices">
       <h2 data-ic="settings">أجهزة البصمة</h2>
       <p class="hint">اربط كل جهاز بقاعته. «رقم الجهاز» هو الرقم الظاهر على شاشة الجهاز في «معلومات النظام»، وعنوان IP كذلك (الأصفار الزائدة مثل 192.168.001.191 تُحذف تلقائيًا).</p>
       <div id="dv-msg" class="msg" hidden></div>
@@ -899,14 +908,14 @@ catch(e){document.documentElement.dataset.theme='azhar';}
       <div class="hall-form"><div><button id="dv-save" data-ic="plus" class="primary" type="button">إضافة جهاز</button></div><div><button id="dv-cancel" type="button" hidden>إلغاء التعديل</button></div></div>
       <div class="scroll"><table><thead><tr><th>رقم الجهاز</th><th>القاعة</th><th>IP</th><th>الموديل</th><th>آخر بصمة</th><th>الحالة</th><th></th></tr></thead><tbody id="dv-rows"></tbody></table></div>
     </div>
-    <div class="card" data-sub="halls">
+    <div class="card" data-sub="halls" data-hp="import">
       <h2 data-ic="upload">استيراد بصمات الأجهزة (من تصدير ADTime)</h2>
       <p class="hint" style="margin-top:0">في ADTime حمّل السجلات من الجهاز ثم صدّر «السجل الأصلي» أو «التقرير التفصيلي» إلى Excel وارفعه هنا. تتجاهل الصفحة البصمات المكررة، فلا مشكلة لو رفعت نفس الملف مرتين. تُسجَّل البصمة حضورًا فقط لو كانت قاعة جهازها فيها جلسة مفتوحة وقت البصمة (ولازم تكون القاعة مختارة عند بدء الجلسة)، وإلا تظهر في الملخص كبصمة بدون جلسة.</p>
       <div id="imp-msg" class="msg" hidden></div>
       <label for="imp-file">ملف Excel أو CSV</label>
       <input id="imp-file" type="file" accept=".xlsx,.xls,.csv">
       <div class="row">
-        <div><label for="imp-device">الجهاز (يُستخدم لو الملف بدون عمود رقم الجهاز)</label><select id="imp-device"></select></div>
+        <div><label for="imp-device">الجهاز (اختياري — يُستخدم لو الملف بدون عمود رقم الجهاز)</label><select id="imp-device"></select></div>
         <div><label for="imp-method">تحويل كود الطالب</label>
           <select id="imp-method">
             <option value="auto">تلقائي (الأنسب لكشوفك)</option>
@@ -1064,6 +1073,14 @@ function navBtn(cls, text, ic, attrs) {
   Object.keys(attrs || {}).forEach(function (k) { b.setAttribute(k, attrs[k]); });
   return b;
 }
+var curHP = 'halls';
+function applyHP() {
+  [].forEach.call(document.querySelectorAll('#tab-admin [data-hp]'), function (c) { if (c.tagName === 'BUTTON') c.classList.toggle('on', c.dataset.hp === curHP); else c.hidden = (c.dataset.hp !== curHP); });
+}
+document.addEventListener('click', function (e) {
+  var b = e.target.closest && e.target.closest('#hp-tabs [data-hp]'); if (!b) return;
+  curHP = b.dataset.hp; applyHP();
+});
 function punchAllowed() { return !!(me && (me.role === 'admin' || (me.role === 'manager' && mgrPunch))); }
 function navList(isAdmin) {
   var l = NAV.filter(function (n) { return !(n.admin && !isAdmin) && !(n.pun && !punchAllowed()) && !(n.sch && !(isAdmin || (me && me.role === 'manager'))); });
@@ -1128,6 +1145,7 @@ function go(tab, sub, noLoad) {
   NAV.forEach(function (x) { $('tab-' + x.id).hidden = (x.id !== tab); });
   var sec = $('tab-' + tab);
   if (n.subs) [].forEach.call(sec.querySelectorAll('[data-sub]'), function (c) { c.hidden = (c.dataset.sub !== sub); });
+  if (tab === 'admin' && sub === 'halls') applyHP();
   [].forEach.call($('tabs').querySelectorAll('.nav-btn'), function (b) {
     var on = b.dataset.tab ? b.dataset.tab === tab : (b.dataset.nav === tab + ':' + sub);
     b.classList.toggle('on', on);
@@ -1858,35 +1876,99 @@ function prTile(v, label, ic, color) {
   var c = el('span', 'sico'); var i = el('i', 'ico'); i.setAttribute('data-ic', ic); c.appendChild(i); d.appendChild(c);
   var w = el('div'); w.appendChild(el('b', '', String(v))); w.appendChild(el('span', '', label)); d.appendChild(w); return d;
 }
+var prSeatMap = {};
+async function prSeatDepts(seats) {
+  var need = seats.filter(function (x) { return !(x in prSeatMap); });
+  var subjDept = {}; subjects.forEach(function (x) { subjDept[x.id] = x.department_id || ''; });
+  for (var i = 0; i < need.length; i += 40) {
+    var chunk = need.slice(i, i + 40), from = 0;
+    chunk.forEach(function (x) { prSeatMap[x] = {}; });
+    for (;;) {
+      var r = await sb.from('subject_students').select('seat,subject_id').in('seat', chunk).range(from, from + 999);
+      if (r.error) throw r.error;
+      (r.data || []).forEach(function (x) { var d = subjDept[x.subject_id]; if (d) prSeatMap[x.seat][d] = 1; });
+      if ((r.data || []).length < 1000) break; from += 1000;
+    }
+  }
+}
+function prDeptSet(id) {
+  var set = {}; if (!id) return null; set[id] = 1;
+  var ch = true; while (ch) { ch = false; departments.forEach(function (d) { if (d.parent_id && set[d.parent_id] && !set[d.id]) { set[d.id] = 1; ch = true; } }); }
+  return set;
+}
+function prDeptNames(seat) {
+  var ids = Object.keys(prSeatMap[seat] || {});
+  return ids.length ? ids.map(function (i) { return (deptPath(i) || '').split(' / ').pop(); }).join('، ') : 'غير مسجَّل في كشف';
+}
+async function prFetchRows(lim) {
+  var ls = await sb.rpc('punch_report_list', prArgs(lim));
+  if (ls.error) throw ls.error;
+  var rows = ls.data || [];
+  var seen = {}, seats = []; rows.forEach(function (x) { if (!seen[x.student_no]) { seen[x.student_no] = 1; seats.push(x.student_no); } });
+  await prSeatDepts(seats);
+  var f = prDeptSet($('pr-dept').value);
+  if (f) rows = rows.filter(function (x) { return Object.keys(prSeatMap[x.student_no] || {}).some(function (d) { return f[d]; }); });
+  return rows;
+}
+function fillPrDepts() {
+  var sel = $('pr-dept'), cur = sel.value; sel.innerHTML = '';
+  var o = el('option', '', 'كل الأقسام'); o.value = ''; sel.appendChild(o);
+  deptTree().forEach(function (d) { var p = el('option', '', '  '.repeat(d.depth) + d.name); p.value = d.id; sel.appendChild(p); });
+  sel.value = cur;
+}
 async function loadPunchReport() {
   msg('pr-msg', 'جارٍ التحميل…');
   var a = prArgs(300);
-  var sm = await sb.rpc('punch_report_summary', { p_from: a.p_from, p_to: a.p_to });
-  if (sm.error) { msg('pr-msg', prErr(sm.error), 'bad'); $('pr-box').hidden = true; return; }
-  var ls = await sb.rpc('punch_report_list', a);
-  if (ls.error) { msg('pr-msg', prErr(ls.error), 'bad'); return; }
-  msg('pr-msg', '');
-  var d = sm.data, st = d.status || {}, rows = ls.data || [];
-  $('pr-box').hidden = false;
-  var box = $('pr-stats'); box.innerHTML = '';
-  box.appendChild(prTile(d.total, 'بصمة', 'clock', '#0b6b4f'));
-  box.appendChild(prTile(d.students, 'طالب', 'users', '#2563eb'));
-  box.appendChild(prTile(st.matched || 0, 'تم تسجيل حضورهم', 'check-circle', '#059669'));
-  box.appendChild(prTile(d.total - (st.matched || 0), 'لم تتحول لحضور', 'alert', '#d97706'));
-  $('pr-range').textContent = d.total ? 'من ' + fmtCairo(new Date(d.first).getTime()) + ' إلى ' + fmtCairo(new Date(d.last).getTime()) + ' — ' +
-    Object.keys(st).map(function (k) { return (PR_ST[k] || k) + ': ' + st[k]; }).join(' · ') : 'لا توجد بصمات في هذه الفترة.';
-  var tb = $('pr-days'); tb.innerHTML = '';
-  (d.daily || []).forEach(function (x) {
-    var tr = el('tr'); [x.day, x.punches, x.students, x.matched].forEach(function (v) { tr.appendChild(el('td', '', String(v))); }); tb.appendChild(tr);
-  });
-  var rb = $('pr-rows'); rb.innerHTML = '';
-  rows.forEach(function (x) {
-    var tr = el('tr');
-    [fmtCairo(new Date(x.punched_at).getTime()), x.student_no, x.name || '—', x.device_no, PR_ST[x.status] || x.status, x.subject || '—'].forEach(function (v) { tr.appendChild(el('td', '', String(v))); });
-    if (x.status !== 'matched') tr.className = 'low';
-    rb.appendChild(tr);
-  });
-  $('pr-count').textContent = rows.length >= 300 ? 'أحدث 300 بصمة بحسب الفلاتر (حمّل Excel للكل).' : rows.length + ' بصمة.';
+  try {
+    if ($('pr-dept').options.length <= 1) fillPrDepts();
+    var sm = await sb.rpc('punch_report_summary', { p_from: a.p_from, p_to: a.p_to });
+    if (sm.error) throw sm.error;
+    var all = await prFetchRows(20000);
+    msg('pr-msg', '');
+    var d = sm.data, st = d.status || {}, rows = all, filt = !!$('pr-dept').value;
+    var matched = filt ? rows.filter(function (x) { return x.status === 'matched'; }).length : (st.matched || 0);
+    var total = filt ? rows.length : d.total;
+    var stu = {}; rows.forEach(function (x) { stu[x.student_no] = 1; });
+    $('pr-box').hidden = false;
+    var box = $('pr-stats'); box.innerHTML = '';
+    box.appendChild(prTile(total, 'بصمة', 'clock', '#0b6b4f'));
+    box.appendChild(prTile(filt ? Object.keys(stu).length : d.students, 'طالب', 'users', '#2563eb'));
+    box.appendChild(prTile(matched, 'تم تسجيل حضورهم', 'check-circle', '#059669'));
+    box.appendChild(prTile(total - matched, 'لم تتحول لحضور', 'alert', '#d97706'));
+    $('pr-range').textContent = d.total ? 'من ' + fmtCairo(new Date(d.first).getTime()) + ' إلى ' + fmtCairo(new Date(d.last).getTime()) + ' — ' +
+      Object.keys(st).map(function (k) { return (PR_ST[k] || k) + ': ' + st[k]; }).join(' · ') : 'لا توجد بصمات في هذه الفترة.';
+    // حسب القسم (على كل البصمات بدون فلتر القسم)
+    var base = filt ? await (async function () { var keep = $('pr-dept').value; $('pr-dept').value = ''; try { return await prFetchRows(20000); } finally { $('pr-dept').value = keep; } })() : all;
+    var g = {};
+    base.forEach(function (x) {
+      var ids = Object.keys(prSeatMap[x.student_no] || {}); if (!ids.length) ids = ['_none'];
+      ids.forEach(function (id) { var o = g[id] = g[id] || { p: 0, m: 0, s: {} }; o.p++; if (x.status === 'matched') o.m++; o.s[x.student_no] = 1; });
+    });
+    var order = deptTree().map(function (x) { return x.id; }).filter(function (id) { return g[id]; }); if (g._none) order.push('_none');
+    var db = $('pr-depts'); db.innerHTML = '';
+    if (!order.length) { var t0 = el('tr'), c0 = el('td', '', 'لا توجد بصمات.'); c0.colSpan = 5; t0.appendChild(c0); db.appendChild(t0); }
+    order.forEach(function (id) {
+      var o = g[id], tr = el('tr'); tr.style.cursor = id === '_none' ? 'default' : 'pointer';
+      var nm = id === '_none' ? 'غير مسجَّل في كشف أي قسم' : deptPath(id);
+      [nm, Object.keys(o.s).length, o.p, o.m, o.p ? Math.round(o.m * 100 / o.p) + '%' : '—'].forEach(function (v) { tr.appendChild(el('td', '', String(v))); });
+      if (id === $('pr-dept').value) tr.className = 'on';
+      if (id !== '_none') tr.onclick = function () { $('pr-dept').value = id; loadPunchReport(); };
+      db.appendChild(tr);
+    });
+    var tb = $('pr-days'); tb.innerHTML = '';
+    var days = d.daily || [];
+    if (filt) { var dm = {}; rows.forEach(function (x) { var k = new Date(x.punched_at).toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' }); var o = dm[k] = dm[k] || { p: 0, m: 0, s: {} }; o.p++; if (x.status === 'matched') o.m++; o.s[x.student_no] = 1; });
+      days = Object.keys(dm).sort().reverse().map(function (k) { return { day: k, punches: dm[k].p, students: Object.keys(dm[k].s).length, matched: dm[k].m }; }); }
+    days.forEach(function (x) { var tr = el('tr'); [x.day, x.punches, x.students, x.matched].forEach(function (v) { tr.appendChild(el('td', '', String(v))); }); tb.appendChild(tr); });
+    var rb = $('pr-rows'); rb.innerHTML = '';
+    rows.slice(0, 300).forEach(function (x) {
+      var tr = el('tr');
+      [fmtCairo(new Date(x.punched_at).getTime()), x.student_no, x.name || '—', prDeptNames(x.student_no), x.device_no, PR_ST[x.status] || x.status, x.subject || '—'].forEach(function (v) { tr.appendChild(el('td', '', String(v))); });
+      if (x.status !== 'matched') tr.className = 'low';
+      rb.appendChild(tr);
+    });
+    $('pr-count').textContent = rows.length > 300 ? 'أحدث 300 بصمة من ' + rows.length + ' (حمّل Excel للكل).' : rows.length + ' بصمة.';
+  } catch (e) { msg('pr-msg', prErr(e), 'bad'); $('pr-box').hidden = true; }
 }
 $('pg-go').onclick = async function () {
   var sid = $('pg-subject').value;
@@ -1902,6 +1984,7 @@ $('pg-go').onclick = async function () {
   loadPunchReport();
 };
 $('pr-go').onclick = loadPunchReport;
+$('pr-dept').onchange = loadPunchReport;
 $('pr-student').addEventListener('keydown', function (e) { if (e.key === 'Enter') loadPunchReport(); });
 $('pr-reproc').onclick = async function () {
   if (!window.confirm('إعادة مطابقة كل البصمات غير المتطابقة مع الجلسات الحالية؟')) return;
@@ -1913,15 +1996,16 @@ $('pr-reproc').onclick = async function () {
 };
 $('pr-xlsx').onclick = async function () {
   msg('pr-msg', 'جارٍ تجهيز الملف…');
-  var r = await sb.rpc('punch_report_list', prArgs(20000));
-  if (r.error) { msg('pr-msg', prErr(r.error), 'bad'); return; }
-  var rows = (r.data || []).map(function (x) { return [fmtCairo(new Date(x.punched_at).getTime()), x.student_no, x.name || '', x.device_no, PR_ST[x.status] || x.status, x.subject || '']; });
+  var rr;
+  try { rr = await prFetchRows(20000); } catch (e) { msg('pr-msg', prErr(e), 'bad'); return; }
+  var rows = rr.map(function (x) { return [fmtCairo(new Date(x.punched_at).getTime()), x.student_no, x.name || '', prDeptNames(x.student_no), x.device_no, PR_ST[x.status] || x.status, x.subject || '']; });
   var f = [];
   if ($('pr-from').value || $('pr-to').value) f.push('من ' + ($('pr-from').value || 'البداية') + ' إلى ' + ($('pr-to').value || 'اليوم'));
   if ($('pr-status').value) f.push(PR_ST[$('pr-status').value]);
   if ($('pr-student').value.trim()) f.push('الرقم الأكاديمي ' + $('pr-student').value.trim());
+  if ($('pr-dept').value) f.push('القسم: ' + deptPath($('pr-dept').value));
   exportStyled({ sheetName: 'البصمات', title: 'تقرير بصمات الأجهزة' + (f.length ? ' — ' + f.join(' — ') : '') + '   (عدد البصمات: ' + rows.length + ')', fileName: 'بصمات الأجهزة',
-    head: ['الوقت (القاهرة)', 'الرقم الأكاديمي', 'الاسم', 'الجهاز', 'الحالة', 'المادة'], rows: rows, widths: [20, 14, 32, 9, 22, 32], left: [2, 5], msgId: 'pr-msg' });
+    head: ['الوقت (القاهرة)', 'الرقم الأكاديمي', 'الاسم', 'القسم', 'الجهاز', 'الحالة', 'المادة'], rows: rows, widths: [20, 14, 32, 24, 9, 22, 32], left: [2, 3, 6], msgId: 'pr-msg' });
 };
 
 /* ============ جدولي ============ */
@@ -3491,7 +3575,7 @@ function buildPunches(parsed, method, fallbackDev) {
   var fn = IMP_METHODS[method] || IMP_METHODS.strip, seen = {}, out = [], noDev = 0, bad = 0;
   parsed.items.forEach(function (it) {
     var dev = it.dev != null ? it.dev : fallbackDev;
-    if (!(dev > 0)) { noDev++; return; }
+    if (!(dev >= 0)) { noDev++; return; }
     var sd = it.sd;
     var mo = sd.fixed ? sd.mo : (parsed.dmy ? sd.b : sd.a), d = sd.fixed ? sd.d : (parsed.dmy ? sd.a : sd.b);
     if (mo < 1 || mo > 12 || d < 1 || d > 31) { bad++; return; }
@@ -3518,9 +3602,9 @@ var IMP_LABEL = { strip: 'حذف الأصفار من اليسار', last8: 'آخ
 
 function fillImpDevices() {
   var s = $('imp-device'), cur = s.value; s.innerHTML = '';
-  var o0 = el('option', '', '— اختر الجهاز —'); o0.value = ''; s.appendChild(o0);
+  var o0 = el('option', '', '— بدون جهاز (الربط بالقسم فقط) —'); o0.value = ''; s.appendChild(o0);
   devices.forEach(function (d) { var o = el('option', '', d.device_no + ' — ' + hallName(d.hall_id)); o.value = d.device_no; s.appendChild(o); });
-  if (cur) s.value = cur; else if (devices.length === 1) s.value = String(devices[0].device_no);
+  if (cur) s.value = cur;
 }
 
 // يفحص مدى تطابق الأكواد مع الأرقام الأكاديمية في كشوف المواد (للمعاينة فقط)
@@ -3564,7 +3648,8 @@ function renderImpPreview() {
     li(b.list.length + ' بصمة لعدد ' + Object.keys(stu).length + ' طالب، من ' + new Date(mn).toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' }) + ' إلى ' + new Date(mx).toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' }) + '.');
   } else li('لا توجد بصمات صالحة للاستيراد.', 'msg bad');
   li('صيغة التاريخ المقروءة: ' + (p.dmy ? 'يوم/شهر/سنة' : 'شهر/يوم/سنة') + (p.conflict ? ' — تنبيه: التواريخ فيها الصيغتين، راجع العينة.' : '') + '.');
-  if (b.noDev) li('تنبيه: ' + b.noDev + ' بصمة بدون رقم جهاز. اختر الجهاز من القائمة أعلاه.', 'msg bad');
+  var nd0 = b.list.filter(function (x) { return x.device_no === 0; }).length;
+  if (nd0) li(nd0 + ' بصمة بدون رقم جهاز: ستُستورد بدون ربط بقاعة، ويتم ربطها بالحضور عن طريق القسم والجدول الدراسي. اختر «ربط البصمات بالقسم» أدناه.', nd0 && !$('imp-subject').value ? 'msg bad' : '');
   if (p.skipped || b.bad) li('تم تجاهل ' + (p.skipped + b.bad) + ' خلية أو صف غير صالح (وقت أو تاريخ غير مفهوم).');
   if (imp.rates) {
     var n = imp.rates[m];
@@ -3602,6 +3687,7 @@ $('imp-file').onchange = function () {
   if (isCsv) reader.readAsText(f, 'UTF-8'); else reader.readAsArrayBuffer(f);
 };
 $('imp-device').onchange = renderImpPreview;
+$('imp-subject').onchange = renderImpPreview;
 $('imp-method').onchange = renderImpPreview;
 
 $('imp-go').onclick = async function () {
@@ -3637,7 +3723,7 @@ $('imp-go').onclick = async function () {
     loadHallsAdmin();
   } catch (e) {
     var t = errText(e) + ((e && e.code) || '');
-    msg('imp-msg', /import_device_punches|PGRST202|42883|schema cache/i.test(t) ? 'دالة الاستيراد غير مثبّتة في Supabase بعد. شغّل ملف import_device_punches.sql في SQL Editor ثم أعد المحاولة.' : /not allowed/i.test(t) ? 'الاستيراد للمدير فقط.' : t, 'bad');
+    msg('imp-msg', /device/i.test(t) && /foreign|23503|null|23502/i.test(t) ? 'قاعدة البيانات ترفض البصمات بدون جهاز. نفّذ في Supabase: insert into devices (device_no, model, is_active) values (0, \'بدون جهاز\', true) on conflict do nothing;  ثم أعد الاستيراد.' : /import_device_punches|PGRST202|42883|schema cache/i.test(t) ? 'دالة الاستيراد غير مثبّتة في Supabase بعد. شغّل ملف import_device_punches.sql في SQL Editor ثم أعد المحاولة.' : /not allowed/i.test(t) ? 'الاستيراد للمدير فقط.' : t, 'bad');
   }
   btn.disabled = false;
 };
