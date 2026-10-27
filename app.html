@@ -203,6 +203,14 @@ catch(e){document.documentElement.dataset.theme='azhar';}
   .hero-sub { opacity:.85; margin:0 0 18px; }
   .sf-bar { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; }
   .sf-bar .row { margin-bottom: 6px; }
+  .cb-wrap { position:relative; }
+  .cb-wrap input { width:100%; }
+  .cb-list { position:absolute; inset-inline:0; top:calc(100% + 4px); z-index:60; max-height:260px; overflow:auto; background:var(--card); color:var(--ink); border:1px solid var(--line); border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.25); padding:4px; }
+  .cb-list div { padding:9px 12px; border-radius:8px; cursor:pointer; font-size:.95rem; }
+  .cb-list div:hover, .cb-list div.act { background:var(--brand); color:var(--brand-ink); }
+  .cb-list div.sel { font-weight:800; }
+  .cb-list .cb-none { cursor:default; opacity:.7; }
+  .cb-list .cb-none:hover { background:transparent; color:inherit; }
   .hall-form { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; align-items:end; margin-bottom:12px; }
   .hall-form > div { min-width:0; }
   .hall-form button { width:100%; }
@@ -752,6 +760,18 @@ catch(e){document.documentElement.dataset.theme='azhar';}
         <button type="button" class="opt" id="pr-xlsx" title="تحميل البصمات بحسب الفلاتر إلى Excel"><i class="ico" data-ic="download"></i><span>تحميل Excel</span></button>
       </div>
       <div id="pr-msg" class="msg" hidden></div>
+      <details id="pr-del" class="imp-link" hidden>
+        <summary data-ic="trash" style="cursor:pointer;font-weight:800">حذف البصمات (للمدير فقط)</summary>
+        <p class="hint">يحذف البصمات المستوردة بحسب الفترة والجهاز. اترك التواريخ فارغة لحذف <b>كل</b> البصمات. حذف الحضور الناتج عن البصمات لا يمس حضور QR أو الرابط.</p>
+        <div class="hall-form">
+          <div><label for="pd-from">من تاريخ</label><input id="pd-from" type="date"></div>
+          <div><label for="pd-to">إلى تاريخ</label><input id="pd-to" type="date"></div>
+          <div><label for="pd-dev">رقم الجهاز (اختياري)</label><input id="pd-dev" type="number" min="0" inputmode="numeric" placeholder="كل الأجهزة"></div>
+        </div>
+        <label class="opt" style="flex-direction:row;justify-content:flex-start;gap:12px;min-height:0;padding:10px 14px;text-align:start"><input id="pd-att" type="checkbox" checked><span>حذف سجلات الحضور المتولّدة من البصمات أيضًا</span></label>
+        <p><button id="pd-go" class="danger" type="button" data-ic="trash">حذف البصمات</button></p>
+        <div id="pd-msg" class="msg" hidden></div>
+      </details>
       <div id="pr-box" hidden>
         <div class="stats" id="pr-stats"></div>
         <p class="hint" id="pr-range" style="margin:0 0 8px"></p>
@@ -1917,6 +1937,7 @@ function fillPrDepts() {
   sel.value = cur;
 }
 async function loadPunchReport() {
+  $('pr-del').hidden = !(me && me.role === 'admin');
   msg('pr-msg', 'جارٍ التحميل…');
   var a = prArgs(300);
   try {
@@ -1984,6 +2005,20 @@ $('pg-go').onclick = async function () {
   loadPunchReport();
 };
 $('pr-go').onclick = loadPunchReport;
+$('pd-go').onclick = async function () {
+  var f = $('pd-from').value || null, t = $('pd-to').value || null, dv = $('pd-dev').value.trim(), att = $('pd-att').checked;
+  var scope = (f || t) ? 'من ' + (f || 'البداية') + ' إلى ' + (t || 'النهاية') : 'كل الفترات';
+  if (!window.confirm('سيتم حذف البصمات (' + scope + (dv ? ' — الجهاز ' + dv : ' — كل الأجهزة') + ')' + (att ? ' مع الحضور الناتج عنها' : '') + '.\nلا يمكن التراجع. متابعة؟')) return;
+  if (window.prompt('للتأكيد النهائي اكتب كلمة: حذف') !== 'حذف') { msg('pd-msg', 'تم الإلغاء.'); return; }
+  var b = $('pd-go'); b.disabled = true; msg('pd-msg', 'جارٍ الحذف…');
+  var r = await sb.rpc('admin_delete_punches', { p_from: f, p_to: t, p_device: dv === '' ? null : parseInt(dv, 10), p_delete_attendance: att });
+  b.disabled = false;
+  if (r.error) { msg('pd-msg', /admin_delete_punches|PGRST202|42883/i.test((r.error.message || '') + (r.error.code || '')) ? 'شغّل ملف delete_punches.sql في Supabase أولًا.' : /not allowed/i.test(r.error.message || '') ? 'الحذف للمدير فقط.' : errText(r.error), 'bad'); return; }
+  var d = r.data || {};
+  prSeatMap = {};
+  msg('pd-msg', 'تم حذف ' + (d.punches_deleted || 0) + ' بصمة' + (att ? ' و ' + (d.attendance_deleted || 0) + ' سجل حضور ناتج عنها' : '') + '. يمكنك الآن رفع الملف الجديد.', 'ok');
+  loadPunchReport();
+};
 $('pr-dept').onchange = loadPunchReport;
 $('pr-student').addEventListener('keydown', function (e) { if (e.key === 'Enter') loadPunchReport(); });
 $('pr-reproc').onclick = async function () {
@@ -3715,9 +3750,14 @@ $('imp-go').onclick = async function () {
       var ar = await sb.rpc('apply_punches_to_group', { p_subject: isid, p_from: dOf(mn2), p_to: dOf(mx2) });
       if (ar.error) { msg('imp-msg', 'تم استيراد ' + tot.inserted + ' بصمة، لكن تعذّر الربط بالقسم: ' + (/apply_punches_to_group/.test(ar.error.message || '') ? 'شغّل ملف apply_punches_group.sql في Supabase أولًا.' : errText(ar.error)), 'bad'); }
       else {
-        var ad = ar.data || {};
-        msg('imp-msg', 'تم استيراد ' + tot.inserted + ' بصمة جديدة (تجاهل ' + tot.skipped + ' مكررة) وربطها بـ ' + ad.subjects + ' مادة (' + (ad.subject_names || []).join('، ') + ') — جلسات جديدة: ' + ad.sessions_created + ' — حضور مضاف: ' + ad.attendance_added +
-          ((ad.skipped_no_schedule || []).length ? ' — تم تخطي (بلا موعد في الجدول): ' + ad.skipped_no_schedule.join('، ') : ''), (ad.skipped_no_schedule || []).length ? 'bad' : 'ok');
+        var ad = ar.data || {}, skp = ad.skipped_no_schedule || [];
+        var head = tot.inserted ? 'تم استيراد ' + tot.inserted + ' بصمة جديدة' + (tot.skipped ? ' (تجاهل ' + tot.skipped + ' مكررة)' : '') : 'كل البصمات (' + tot.skipped + ') مستوردة سابقًا';
+        if (!ad.subjects && skp.length) {
+          msg('imp-msg', head + '، لكن لم يُسجَّل أي حضور: المواد التالية ليس لها موعد في «الجدول الرئيسي»: ' + skp.join('، ') + '. أضف موعد المادة (اليوم والوقت والقاعة) من «الجدول الرئيسي» ثم اضغط «استيراد البصمات» مرة أخرى (المكرر يُتجاهل).', 'bad');
+        } else {
+          msg('imp-msg', head + ' وتم ربطها بـ ' + (ad.subjects || 0) + ' مادة (' + (ad.subject_names || []).join('، ') + ') — جلسات جديدة: ' + (ad.sessions_created || 0) + ' — حضور مضاف: ' + (ad.attendance_added || 0) +
+            (skp.length ? ' — تم تخطي (بلا موعد في الجدول الرئيسي): ' + skp.join('، ') : ''), skp.length ? 'bad' : 'ok');
+        }
       }
     }
     loadHallsAdmin();
@@ -4293,6 +4333,54 @@ $('im-go').onclick = async function () {
 };
 
 init();
+
+/* ============ مربعات اختيار قابلة للكتابة والبحث ============ */
+(function () {
+  var IDS = ['d-risk-subj','f-dept','f-level','f-term','f-subject','f-lecturer','sf-dept','sf-level','sf-term','sf-lect','s-subject','s-hall','ind-subject','u-subject','r-subject','sc-subject','sc-hall','pg-subject','pr-dept','as-dept','as-level','as-term','as-course','as-lect','as-fdept','as-flect','c-dept','a-dparent','a-udept','dv-hall','imp-device','imp-subject'];
+  function norm(t) { return String(t || '').replace(/[ً-ْـ]/g, '').replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/[٠-٩]/g, function (d) { return d.charCodeAt(0) - 0x0660; }).replace(/ /g, ' ').trim().toLowerCase(); }
+  var vd = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+  function enhance(sel) {
+    if (!sel || sel.dataset.cb || sel.multiple) return; sel.dataset.cb = '1';
+    var wrap = document.createElement('div'); wrap.className = 'cb-wrap';
+    var inp = document.createElement('input'); inp.type = 'text'; inp.autocomplete = 'off'; inp.id = sel.id + '-cb'; inp.setAttribute('role', 'combobox');
+    var list = document.createElement('div'); list.className = 'cb-list'; list.hidden = true;
+    sel.parentNode.insertBefore(wrap, sel); wrap.appendChild(inp); wrap.appendChild(list); wrap.appendChild(sel); sel.style.display = 'none';
+    var lab = document.querySelector('label[for="' + sel.id + '"]'); if (lab) lab.setAttribute('for', inp.id);
+    var act = -1, shown = [];
+    function curText() { var o = sel.options[sel.selectedIndex]; return o ? o.text.replace(/ /g, '').trim() : ''; }
+    function sync() { inp.value = curText(); inp.disabled = sel.disabled; wrap.hidden = sel.hidden; inp.placeholder = sel.options.length ? 'اكتب للبحث أو اختر…' : ''; }
+    function render(filter) {
+      list.innerHTML = ''; shown = []; act = -1; var q = norm(filter);
+      [].forEach.call(sel.options, function (o) {
+        if (q && norm(o.text).indexOf(q) < 0) return;
+        var d = document.createElement('div'); d.textContent = o.text.replace(/ /g, ' ').replace(/^\s+/, function (m) { return m; });
+        d.style.paddingInlineStart = (12 + (o.text.match(/^ */)[0].length * 5)) + 'px'; d.textContent = o.text.replace(/ /g, '');
+        if (o.value === sel.value) d.className = 'sel';
+        d.onmousedown = function (e) { e.preventDefault(); pick(o); };
+        list.appendChild(d); shown.push({ el: d, o: o });
+      });
+      if (!shown.length) { var n = document.createElement('div'); n.className = 'cb-none'; n.textContent = 'لا توجد نتائج'; list.appendChild(n); }
+    }
+    function open(filter) { render(filter || ''); list.hidden = false; var s = list.querySelector('.sel'); if (s && !filter) s.scrollIntoView({ block: 'nearest' }); }
+    function close() { list.hidden = true; }
+    function pick(o) { vd.set.call(sel, o.value); close(); sync(); sel.dispatchEvent(new Event('change', { bubbles: true })); }
+    function mark(i) { shown.forEach(function (x) { x.el.classList.remove('act'); }); act = Math.max(0, Math.min(shown.length - 1, i)); if (shown[act]) { shown[act].el.classList.add('act'); shown[act].el.scrollIntoView({ block: 'nearest' }); } }
+    inp.addEventListener('focus', function () { inp.select(); open(''); });
+    inp.addEventListener('click', function () { if (list.hidden) open(''); });
+    inp.addEventListener('input', function () { open(inp.value); mark(0); });
+    inp.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); if (list.hidden) open(inp.value); mark(act + 1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); mark(act - 1); }
+      else if (e.key === 'Enter') { if (!list.hidden && shown.length) { e.preventDefault(); pick(shown[act >= 0 ? act : 0].o); } }
+      else if (e.key === 'Escape') { close(); sync(); }
+    });
+    inp.addEventListener('blur', function () { setTimeout(function () { close(); sync(); }, 120); });
+    Object.defineProperty(sel, 'value', { get: function () { return vd.get.call(sel); }, set: function (v) { vd.set.call(sel, v); sync(); }, configurable: true });
+    new MutationObserver(sync).observe(sel, { childList: true, attributes: true, attributeFilter: ['hidden', 'disabled'] });
+    sync();
+  }
+  IDS.forEach(function (id) { enhance(document.getElementById(id)); });
+})();
 </script>
 </body>
 </html>
