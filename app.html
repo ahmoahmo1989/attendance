@@ -2523,6 +2523,10 @@ function addExportSheet(wb, o, logos, si) {
     for (var k = 1; k <= nCols; k++) {
       var c = row.getCell(k); c.font = r === HR ? { name: 'Arial', size: 12, bold: true } : F;
       c.alignment = (r !== HR && leftIdx.indexOf(k - 1) > -1) ? { vertical: 'middle' } : { horizontal: 'center', vertical: 'middle', wrapText: r === HR || !!o.wrap };
+      if (r > HR && String(c.value == null ? '' : c.value).trim() === 'غائب') {   // الغياب بالأحمر
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC7CE' } };
+        c.font = { name: 'Arial', size: 12, bold: true, color: { argb: 'FFC00000' } };
+      }
     }
   }
   (o.validations || []).forEach(function (v) {   // قوائم منسدلة (مثل أيام الأسبوع) لأول 300 صف
