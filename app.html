@@ -1977,6 +1977,12 @@ function prFilterDept(rows) {
   return rows.filter(function (x) { return Object.keys(prSeatMap[x.student_no] || {}).some(function (d) { return f[d]; }); });
 }
 async function prFetchRows(lim, useCache) { return prFilterDept(await prFetchAll(lim, useCache)); }
+function fillSelDepts(id) {
+  var sel = $(id), cur = sel.value; sel.innerHTML = '';
+  var o = el('option', '', 'كل الأقسام'); o.value = ''; sel.appendChild(o);
+  deptTree().forEach(function (d) { var p = el('option', '', '\u00A0\u00A0'.repeat(d.depth) + d.name); p.value = d.id; sel.appendChild(p); });
+  sel.value = cur;
+}
 function fillPrDepts() {
   var sel = $('pr-dept'), cur = sel.value; sel.innerHTML = '';
   var o = el('option', '', 'كل الأقسام'); o.value = ''; sel.appendChild(o);
