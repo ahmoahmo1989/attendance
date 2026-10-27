@@ -1804,27 +1804,38 @@ async function buildReportXlsx(ExcelJS, matrix, subject, period, logos) {
   var tc = ws.getCell(5, 1); tc.value = 'تقرير حضور مادة: ' + sub + (period ? '  (' + period + ')' : '');
   tc.font = { name: 'Arial', size: 13, bold: true }; tc.alignment = { horizontal: 'center', vertical: 'middle', readingOrder: 'rtl' };
   ws.getRow(5).height = 28; ws.getRow(6).height = 8;
-  if (logos && logos.azhar) {
-    var a = wb.addImage({ buffer: logos.azhar, extension: 'png' });
-    ws.addImage(a, { tl: { col: nCols - 1 + 0.12, row: 0.08 }, ext: { width: 92, height: 92 }, editAs: 'oneCell' });
-  }
-  if (logos && logos.faculty) {
-    var f = wb.addImage({ buffer: logos.faculty, extension: 'png' });
-    ws.addImage(f, { tl: { col: nCols - 3 + 0.5, row: 0.08 }, ext: { width: 92, height: 89 }, editAs: 'oneCell' });
-  }
+  // الشعارات على اليسار من اليسار لليمين: الكلية، الأزهر، وحدة نظم المعلومات
+  function pngSize(buf) { try { var dv = new DataView(buf.buffer || buf, buf.byteOffset || 0); return [dv.getUint32(16), dv.getUint32(20)]; } catch (e) { return [1, 1]; } }
+  // موضع الصورة بالبكسل من الحافة اليسرى للشيت (آخر عمود = أقصى اليسار) → عمود + إزاحة
+  var colW = []; for (var q = nCols; q >= 1; q--) colW.push(Math.round(ws.getColumn(q).width * 7 + 5));
+  // في الشيت من اليمين لليسار تُقاس الإزاحة من الحافة اليمنى للعمود
+  function at(X) { var left = 0, idx = 0; while (idx < colW.length - 1 && X > left + colW[idx]) { left += colW[idx]; idx++; }
+    return { nativeCol: nCols - 1 - idx, nativeColOff: Math.max(0, left + colW[idx] - X) * 9525, nativeRow: 0, nativeRowOff: 6 * 9525 }; }
+  var xPos = 12;
+  ['faculty', 'azhar', 'unit'].forEach(function (key) {
+    var buf = logos && logos[key]; if (!buf) return;
+    var sz = pngSize(buf), h = 92, w = Math.round(h * sz[0] / sz[1]);
+    var id = wb.addImage({ buffer: buf, extension: 'png' });
+    ws.addImage(id, { tl: at(xPos), ext: { width: w, height: h }, editAs: 'oneCell' });
+    xPos += w + 14;
+  });
 
   // الجدول (نفس أعمدة النموذج)
   var head = ['رقم الجلوس', 'الاسم'].concat(matrix.sessions.map(function (s) { return s.label; })).concat(['عدد المحاضرات', 'الحضور', 'الغياب', 'النسبة %', 'مشتبه (عدد المحاضرات)']);
   var HR = 7;
-  function put(rowIdx, arr) {
-    var r = ws.getRow(rowIdx); r.height = 24.95;
-    arr.forEach(function (v, k) { var c = r.getCell(k + 1); c.value = v; c.font = F; if (k !== 1) c.alignment = { horizontal: 'center', vertical: 'middle' }; else c.alignment = { vertical: 'middle' }; });
-  }
-  put(HR, head);
-  matrix.students.forEach(function (s, n) {
-    put(HR + 1 + n, [String(s.seat), s.name].concat(s.marks.map(function (m, i) { return m ? (s.sus[i] ? 'حاضر (مشتبه)' : 'حاضر') : 'غائب'; }))
-      .concat([total, s.present, total - s.present, total ? s.pct : '', s.susN || 0]));
+  var rows = matrix.students.map(function (s) {
+    return [String(s.seat), s.name].concat(s.marks.map(function (m, i) { return m ? (s.sus[i] ? 'حاضر (مشتبه)' : 'حاضر') : 'غائب'; }))
+      .concat([total, s.present, total - s.present, total ? s.pct : '', s.susN || 0]);
   });
+  ws.addTable({ name: 'AttendanceTable', ref: 'A' + HR, headerRow: true, totalsRow: false,
+    style: { theme: 'TableStyleMedium2', showRowStripes: true }, columns: head.map(function (h) { return { name: h, filterButton: true }; }), rows: rows });
+  for (var r = HR; r <= HR + rows.length; r++) {
+    var row = ws.getRow(r); row.height = r === HR ? 38 : 24.95;
+    for (var k = 1; k <= nCols; k++) {
+      var c = row.getCell(k); c.font = r === HR ? { name: 'Arial', size: 12, bold: true } : F;
+      c.alignment = k === 2 && r !== HR ? { vertical: 'middle' } : { horizontal: 'center', vertical: 'middle', wrapText: r === HR };
+    }
+  }
   ws.pageSetup.printTitlesRow = HR + ':' + HR;
   return wb.xlsx.writeBuffer();
 }
@@ -1868,6 +1879,7 @@ $('r-xlsx').onclick = async function () {
   var logos = {};
   try { logos.azhar = await fetchBuf('logo-azhar.png'); } catch (e) {}
   try { logos.faculty = await fetchBuf('logo-faculty.png'); } catch (e) {}
+  try { logos.unit = await fetchBuf('logo-unit.png'); } catch (e) {}
   var period = ($('r-from').value || $('r-to').value) ? 'من ' + ($('r-from').value || 'البداية') + ' إلى ' + ($('r-to').value || 'اليوم') : '';
   var buf;
   try { buf = await buildReportXlsx(window.ExcelJS, matrix, matrixSubject, period, logos); }
